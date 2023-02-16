@@ -207,6 +207,7 @@ type configAnnouncement struct {
 type configUser struct {
 	Nick         string               `mapstructure:"nick"`
 	Name         string               `mapstructure:"name"`
+	Description  string               `mapstructure:"description"`
 	Password     string               `mapstructure:"password"`
 	TOTP         string               `mapstructure:"totp"`
 	AppPasswords []*configAppPassword `mapstructure:"appPasswords"`

@@ -129,7 +129,7 @@ func (a *goBlog) postSummary(p *post) (summary string) {
 }
 
 func (a *goBlog) fallbackTitle(p *post) string {
-	return truncateStringWithEllipsis(a.postSummary(p), 30)
+	return truncateStringWithEllipsis(a.postSummary(p), 60)
 }
 
 func (a *goBlog) postTranslations(p *post) []*post {

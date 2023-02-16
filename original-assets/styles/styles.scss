@@ -1,6 +1,8 @@
+@import url("/assets/fonts.css");
+
 $colors: (
   background: #fff,
-  background-dark: #000,
+  background-dark: #161616,
   primary: #000,
   primary-dark: #fff
 );
@@ -28,11 +30,11 @@ $colors: (
 }
 
 .sans-serif {
-  font-family: sans-serif;
+  font: sans-serif;
 }
 
 .monospace {
-  font-family: monospace;
+  font: 93.75%/1.5 "Courier Prime", monospace;
 }
 
 html {
@@ -44,12 +46,12 @@ html {
 }
 
 body {
-  @extend .sans-serif;
+  @extend .monospace;
   @include color(background, background);
   @include color(color, primary);
   line-height: 1.5;
-  margin: 0 auto;
-  max-width: 700px;
+  margin: auto;
+  max-width: 720px;
   padding: 10px;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -57,6 +59,19 @@ body {
   * {
     max-width: 100%;
   }
+}
+
+main a {
+	text-decoration: none;
+	border-width: 0 0 1px 0;
+	border-style: dashed;
+	word-wrap:break-word;
+	cursor: pointer;
+}
+
+main a:hover {
+  @extend .invert;
+  border: none;
 }
 
 a, hr {
@@ -69,8 +84,9 @@ a, hr {
 }
 
 header {
-  @extend .border-bottom;
+  // @extend .border-bottom;
   padding: 10px 0;
+  text-align: center;
 
   * {
     margin-top: 0;
@@ -78,11 +94,23 @@ header {
   }
 }
 
-h1 a, h2 a {
+h1 a, h2 a, nav a, header a {
   text-decoration: none;
+  border: none;
 }
 
-img, audio {
+img {
+  max-width: 100%;
+  max-height: 500px;
+  height: auto;
+  width: auto;
+}
+
+ul {
+  padding-left: 1.5rem;
+}
+
+audio {
   @extend .fw;
 }
 
@@ -91,7 +119,7 @@ button, input, textarea, select {
   border-radius: 0;
   @include color(background, background);
   @include color(color, primary);
-  @extend .sans-serif;
+  @extend .monospace;
   padding: 5px 10px;
   box-sizing: border-box;
   text-decoration: none;
@@ -171,9 +199,10 @@ tr, td, th {
 }
 
 footer {
-  @extend .border-top;
-  padding: 10px 0;
-
+  padding: 1rem 0;
+  text-align: center;
+  border-top: 1px solid var(--primary);
+  margin-top: 100px;
   * {
     margin-top: 0;
     margin-bottom: 0;
@@ -181,10 +210,53 @@ footer {
 }
 
 details summary {
+	padding: 0.5rem 0;
+	position: relative;
+	cursor: pointer;
+	list-style: none;
+  outline: 0;
+	padding-left: 20px;
   // Show first child of summary inline
   > *:first-child {
     display: inline;
   }
+}
+
+summary:hover {
+  cursor: pointer;
+}
+
+details[open] summary ~ * {
+	animation: open 0.3s ease-in-out;
+	}
+	  
+	@keyframes open {
+		0% {
+		  opacity: 0;
+		}
+		100% {
+		  opacity: 0.5;
+		}
+	}
+	
+details summary::-webkit-details-marker {
+	display: none;
+}
+	
+details summary:after {
+	content: "+";
+	position: absolute;
+	font-size: 1.75rem;
+	line-height: 0;
+	margin-top: 0.75rem;
+	left: 0;
+	font-weight: 200;
+	transform-origin: center;
+	transition: 200ms linear;
+}
+
+details[open] summary:after {
+	transform: rotate(45deg);
 }
 
 .border-top {
@@ -193,6 +265,7 @@ details summary {
 
 .border-bottom {
   @include color-border(border-bottom, 1px, solid, primary);
+  margin-bottom: 1rem;
 }
 
 .p {
@@ -274,6 +347,7 @@ details summary {
 #announcement {
   @extend .invert;
 	padding: 5px;
+  margin-top: 2rem;
 	text-align: center;
   * {
     @extend .invert;
@@ -301,6 +375,7 @@ details summary {
   #tts,
   #interactions,
   #tor,
+  #menu,
   #announcement {
     display: none;
   }
@@ -312,5 +387,316 @@ details summary {
   // Show link
   .e-content a[href]:after {
     content: " [" attr(href) "]";
+  }
+}
+
+// Custom CSS Classes
+
+.post-section {
+  font-weight: bold;
+  border: none;
+}
+
+.profile-pic {
+  width: 96px !important;
+  height: 96px !important;
+}
+
+.book-cover, .playlist-track img {
+	float: left; 
+	margin-right: 1rem;
+	max-width: 70px !important;
+}
+
+.album-title, .book-title {
+  font-size: 16px;
+}
+
+.album-artist, .book-author {
+  font-weight: bold;
+}
+
+.read-of, .playlist-track {
+  display: inline-block;
+  width: 100%;
+}
+
+.chart {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-gap: 20px 20px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.chart-item {
+  text-align: left;
+  max-width: 250px;
+}
+
+.meta-text {
+  font-size: small;
+  > a {
+    font-weight: bold;
+    border: none;
+  }
+}
+
+.vinyl-case {
+	border: 0;
+  margin-left: -8px;
+  margin-bottom: 0;
+	height: 168px;
+	width: 230px;
+	border-image: url("/images/vinylcase.png") 0 fill;
+}
+
+.album-art {
+	position: relative;
+	z-index: -1;
+	width: 153px;
+	height: 153px;
+	margin: 5px 8px;;
+}
+
+.syndication {
+	text-align: right;
+	> a, a:hover {
+		border: none;
+    background: none;
+	}
+}
+
+.mixtape-post-listing a {
+  border: none;
+}
+
+.mixtape-post-title a:hover {
+  background: none;
+}
+
+.inline-playlist {
+  margin: 1rem;
+  width:36%;
+  border:1px solid var(--primary);
+  background: var(--background);
+  padding: 10px;
+}
+
+.inline-playlist a:hover {
+  color: var(--primary)
+}
+
+.pagination {
+  display: inline;
+  a {
+    border: none;
+    padding: 10px;
+    font-weight: bold;
+    width: 40%;
+    text-align: center;
+    @extend .invert
+  }
+}
+.next-page {
+  float: right;
+}
+.prev-page {
+  float: left;
+}
+
+// Menus
+
+.navbar {
+	list-style-type:none;
+	margin-top: 10px;
+	padding:0;
+	position: absolute;
+}
+
+.navbar li {
+	display: block;
+}
+
+.navbar li a {
+	display: block;
+	padding: 10px;
+	text-decoration: none;
+	border: none;
+	font-size: large;
+}
+
+.navbar li:hover a {
+	@extend .invert;
+}
+
+.navbar li ul .navbar li a {
+	width: auto;
+	min-width: 100px;
+	padding: 0 20px;
+}
+
+.show-menu {
+	text-decoration: none;
+	text-align: center;
+	font-weight: bold;
+	padding: 10px;
+	display: none;
+}
+
+.menu-icon {
+  @extend .invert;
+  margin-top: 1rem;
+}
+
+.user-menu {
+  margin: auto;
+  width: 300px;
+}
+
+.user-menu a {
+  font-size: 19px;
+}
+
+.menu-item {
+  text-decoration: none !important;
+  display: inline-block;
+  border: none;
+}
+
+header input[type=checkbox]{
+    display: none;
+}
+
+header input[type=checkbox]:checked ~ #menu{
+    display: block;
+    width: 100%;
+    z-index: 1;
+}
+
+@media screen and (max-width : 768px){
+	.menu {
+		position: static;
+		display: none;
+	}
+	.menu-item {
+		margin-bottom: 1px;
+	}
+
+	/*Display 'show menu' link*/
+	.show-menu {
+		display:block;
+	}
+}
+
+// Custom Icons
+
+.social-icons {
+  display: inline-flex;
+}
+
+.social-icons img {
+  width: 15px;
+}
+
+.social-link {
+  margin: 5px;
+}
+
+.social-link a {
+  border: none;
+}
+
+.fontawesome {
+  background: var(--background);
+}
+
+.twitter {
+  filter: invert(47%) sepia(86%) saturate(2571%) hue-rotate(182deg) brightness(106%) contrast(90%);
+}
+
+.mastodon {
+  filter: invert(44%) sepia(99%) saturate(488%) hue-rotate(168deg) brightness(89%) contrast(85%);
+}
+
+.sonemic {
+  filter: invert(28%) sepia(55%) saturate(1092%) hue-rotate(189deg) brightness(96%) contrast(89%);
+}
+
+.microblog {
+  filter: invert(81%) sepia(50%) saturate(5948%) hue-rotate(0deg) brightness(105%) contrast(103%);
+}
+
+.github {
+  filter: invert(12%) sepia(7%) saturate(1293%) hue-rotate(173deg) brightness(100%) contrast(90%);
+}
+
+.rss-feed {
+  filter: invert(53%) sepia(20%) saturate(2929%) hue-rotate(352deg) brightness(94%) contrast(93%);
+}
+
+.spotify {
+  filter: invert(87%) sepia(14%) saturate(5946%) hue-rotate(75deg) brightness(89%) contrast(89%);
+}
+
+.masonry-wrapper img {
+  max-width: inherit;
+}
+
+.nowplaying {
+  display: flex;
+}
+
+.nowplaying-art {
+  display: inline;
+  vertical-align: middle;
+  margin-right: 5px;
+  width: 2rem;
+}
+
+/* Desktop */
+
+@media only screen and (min-width: 768px) {
+  header {
+    text-align: left;
+    height: 120px;
+  }
+  .navbar {
+		max-width: 150px;
+	}
+	.navbar li a {
+		font-size: 1rem;
+	}
+	.menu {
+		position: absolute;
+    top: 150px;
+	}
+  main, .indieauth, .user-menu, footer {
+    margin-left: 150px;
+    max-width: 560px;
+  }
+  main h1, main h2 {
+    margin: 0;
+  }
+  .profile-pic {
+    width: 110px !important;
+    height: 110px !important;
+    float: left;
+    margin: 0 30px 0 0;
+    border: 5px solid var(--primary);
+  }
+  .nowplaying {
+    display: flex;
+    position: absolute;
+    top: 25px;
+    margin-left: 275px;
+    width: 275px;
+    font-size: small;
+  }
+  .actions, #reactions, #interactions {
+    margin-left: 150px;
+  }
+  main .actions {
+    margin-left: 0;
   }
 }

@@ -13,7 +13,7 @@ func (a *goBlog) serveRobotsTXT(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprint(w, "Disallow: /\n")
 		return
 	}
-	_, _ = fmt.Fprint(w, "Allow: /\n\n")
+	_, _ = fmt.Fprint(w, "Allow: /$\nDisallow: /\n\n")
 	_, _ = fmt.Fprintf(w, "Sitemap: %s\n", a.getFullAddress(sitemapPath))
 	for _, bc := range a.cfg.Blogs {
 		_, _ = fmt.Fprintf(w, "Sitemap: %s\n", a.getFullAddress(bc.getRelativePath(sitemapBlogPath)))

@@ -15,8 +15,8 @@ import (
 	"go.goblog.app/app/pkgs/bufferpool"
 )
 
-const defaultCompressionWidth = 2000
-const defaultCompressionHeight = 3000
+const defaultCompressionWidth = 1280
+const defaultCompressionHeight = 800
 
 type mediaCompression interface {
 	compress(url string, save mediaStorageSaveFunc, hc *http.Client) (location string, err error)
@@ -162,7 +162,7 @@ func (*localMediaCompressor) compress(url string, upload mediaStorageSaveFunc, h
 		case "png":
 			_ = pw.CloseWithError(imaging.Encode(pw, resizedImage, imaging.PNG, imaging.PNGCompressionLevel(png.BestCompression)))
 		default:
-			_ = pw.CloseWithError(imaging.Encode(pw, resizedImage, imaging.JPEG, imaging.JPEGQuality(75)))
+			_ = pw.CloseWithError(imaging.Encode(pw, resizedImage, imaging.JPEG, imaging.JPEGQuality(99)))
 		}
 	}()
 	// Upload compressed file
