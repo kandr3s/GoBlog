@@ -48,8 +48,6 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 	hb.WriteElementOpen("link", "rel", "webmention", "href", a.getFullAddress("/webmention"))
 	// Micropub
 	hb.WriteElementOpen("link", "rel", "micropub", "href", a.getFullAddress("/micropub"))
-	// Manifest
-	hb.WriteElementOpen("link", "rel", "manifest", "href", "/manifest.json")
 	// IndieAuth
 	hb.WriteElementOpen("link", "rel", "authorization_endpoint", "href", a.getFullAddress("/indieauth"))
 	hb.WriteElementOpen("link", "rel", "token_endpoint", "href", a.getFullAddress("/indieauth/token"))
