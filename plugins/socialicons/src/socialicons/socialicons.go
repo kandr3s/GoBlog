@@ -68,11 +68,6 @@ func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.D
 	hb.WriteElementOpen("img", "src", "/assets/icons/github-alt.svg", "class", "github", "title", "GitHub", "width", "18px", "height", "18px")
 	hb.WriteElementClose("a")
 	hb.WriteElementClose("span")
-	//hb.WriteElementOpen("span", "class", "social-link")
-	//hb.WriteElementOpen("a", "target", "_blank", "href", "https://twitter.com/kandr3s")
-	//hb.WriteElementOpen("img", "src", "/assets/icons/twitter.svg", "class", "twitter", "title", "Twitter", "width", "18px", "height", "18px")
-	//hb.WriteElementClose("a")
-	//hb.WriteElementClose("span")
 	hb.WriteElementClose("p")
-	doc.Find("header").AppendHtml(buf.String())
+	doc.Find(".show-menu.menu-icon").BeforeHtml(buf.String())
 }
