@@ -490,11 +490,13 @@ details[open] summary:after {
 .pagination {
   display: inline;
   a {
-    border: none;
+    border: 1px solid var(--primary);
     padding: 10px;
     font-weight: bold;
     width: 40%;
     text-align: center;
+  }
+  a:hover {
     @extend .invert
   }
 }
@@ -550,8 +552,7 @@ details[open] summary:after {
 }
 
 .user-menu {
-  margin: auto;
-  width: 300px;
+  position: absolute;
 }
 
 .user-menu a {
@@ -645,6 +646,7 @@ header input[type=checkbox]:checked ~ #menu{
 
 .nowplaying {
   display: flex;
+  margin: 5px auto;
 }
 
 .nowplaying-art {
@@ -660,16 +662,17 @@ header input[type=checkbox]:checked ~ #menu{
   header {
     text-align: left;
     height: 120px;
+    margin: 15px auto;
   }
   .navbar {
-		max-width: 150px;
+		width: 120px;
 	}
 	.navbar li a {
 		font-size: 1rem;
 	}
 	.menu {
 		position: absolute;
-    top: 150px;
+    top: 160px;
 	}
   main, .indieauth, .user-menu, footer {
     margin-left: 150px;
@@ -688,7 +691,7 @@ header input[type=checkbox]:checked ~ #menu{
   .nowplaying {
     display: flex;
     position: absolute;
-    top: 25px;
+    top: 35px;
     margin-left: 275px;
     width: 275px;
     font-size: small;
