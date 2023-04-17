@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/hacdias/indieauth/v3"
 	"github.com/kaorimatz/go-opml"
 	"github.com/mergestat/timediff"
@@ -11,6 +12,7 @@ import (
 	//	"github.com/samber/lo"
 	"go.goblog.app/app/pkgs/contenttype"
 	"go.goblog.app/app/pkgs/htmlbuilder"
+	"go.goblog.app/app/pkgs/plugintypes"
 )
 
 func (a *goBlog) renderEditorPreview(hb *htmlbuilder.HtmlBuilder, bc *configBlog, p *post) {
@@ -150,44 +152,7 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		main(hb)
 	}
 	// Footer
-	hb.WriteElementOpen("footer")
-	// Footer menu
-	if fm, ok := rd.Blog.Menus["footer"]; ok {
-		hb.WriteElementOpen("nav")
-		for i, item := range fm.Items {
-			if i > 0 {
-				hb.WriteUnescaped(" &bull; ")
-			}
-			hb.WriteElementOpen("a", "href", item.Link)
-			hb.WriteEscaped(a.renderMdTitle(item.Title))
-			hb.WriteElementClose("a")
-		}
-		if rd.LoggedIn() {
-			hb.WriteUnescaped(" &bull; ")
-			hb.WriteElementOpen("a", "href", "/search")
-			hb.WriteUnescaped("🔍 Search")
-			hb.WriteElementClose("a")
-			hb.WriteUnescaped(" &bull; ")
-			hb.WriteElementOpen("a", "href", "/map")
-			hb.WriteUnescaped("🗺️ Map")
-			hb.WriteElementClose("a")
-		}
-		hb.WriteElementClose("nav")
-	}
-	// Copyright
-	hb.WriteElementOpen("p", "translate", "no")
-	hb.WriteUnescaped("&copy; ")
-	hb.WriteEscaped(time.Now().Format("2006"))
-	hb.WriteUnescaped(" ")
-	if user != nil && user.Name != "" {
-		hb.WriteEscaped(user.Name)
-	} else {
-		hb.WriteEscaped(renderedBlogTitle)
-	}
-	hb.WriteElementClose("p")
-	// Tor
-	a.renderTorNotice(hb, rd)
-	hb.WriteElementClose("footer")
+	a.renderFooter(hb, rd)
 	// Easter egg
 	if rd.EasterEgg {
 		hb.WriteElementOpen("script", "src", a.assetFileName("js/easteregg.js"), "defer", "")
@@ -431,7 +396,7 @@ func (a *goBlog) renderIndex(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			if id.posts != nil && len(id.posts) > 0 {
 				// Posts
 				for _, p := range id.posts {
-					a.renderSummary(hb, rd.Blog, p, id.summaryTemplate)
+					a.renderSummary(hb, rd, rd.Blog, p, id.summaryTemplate)
 				}
 			} else {
 				// No posts
@@ -728,7 +693,6 @@ type contactRenderData struct {
 	title       string
 	description string
 	privacy     string
-	sent        bool
 }
 
 func (a *goBlog) renderContact(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
@@ -743,14 +707,6 @@ func (a *goBlog) renderContact(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			a.renderTitleTag(hb, rd.Blog, renderedTitle)
 		},
 		func(hb *htmlbuilder.HtmlBuilder) {
-			if cd.sent {
-				hb.WriteElementOpen("main")
-				hb.WriteElementOpen("p")
-				hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "messagesent"))
-				hb.WriteElementClose("p")
-				hb.WriteElementClose("main")
-				return
-			}
 			hb.WriteElementOpen("main")
 			// Title
 			if renderedTitle != "" {
@@ -780,8 +736,18 @@ func (a *goBlog) renderContact(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			} else {
 				hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "contactsend"))
 			}
-			hb.WriteElementClose("form")
-			hb.WriteElementClose("main")
+			hb.WriteElementsClose("form", "main")
+		},
+	)
+}
+
+func (a *goBlog) renderContactSent(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
+	a.renderBase(
+		hb, rd, nil,
+		func(hb *htmlbuilder.HtmlBuilder) {
+			hb.WriteElementsOpen("main", "p")
+			hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "messagesent"))
+			hb.WriteElementsClose("p", "main")
 		},
 	)
 }
@@ -895,7 +861,13 @@ func (a *goBlog) renderPost(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				hb.WriteElementOpen("link", "rel", "shortlink", "href", su)
 			}
 		},
-		func(hb *htmlbuilder.HtmlBuilder) {
+		func(origHb *htmlbuilder.HtmlBuilder) {
+			// Wrap plugins
+			hb, finish := a.wrapForPlugins(origHb, a.getPlugins(pluginUiPostType), func(plugin any, doc *goquery.Document) {
+				plugin.(plugintypes.UIPost).RenderPost(rd.prc, p, doc)
+			})
+			defer finish()
+			// Render...
 			hb.WriteElementOpen("main", "class", "h-entry")
 			// URL (hidden just for microformats)
 			hb.WriteElementOpen("data", "value", a.getFullAddress(p.Path), "class", "u-url hide")
@@ -955,14 +927,14 @@ func (a *goBlog) renderPost(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				hb.WriteElementClose("form")
 				// Delete
 				hb.WriteElementOpen("form", "method", "post", "action", rd.Blog.getRelativePath("/editor"))
-				hb.WriteElementOpen("input", "type", "hidden", "name", "action", "value", "delete")
+				hb.WriteElementOpen("input", "type", "hidden", "name", "editoraction", "value", "delete")
 				hb.WriteElementOpen("input", "type", "hidden", "name", "url", "value", rd.Canonical)
 				hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "delete"), "class", "confirm", "data-confirmmessage", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "confirmdelete"))
 				hb.WriteElementClose("form")
 				// Undelete
 				if p.Deleted() {
 					hb.WriteElementOpen("form", "method", "post", "action", rd.Blog.getRelativePath("/editor"))
-					hb.WriteElementOpen("input", "type", "hidden", "name", "action", "value", "undelete")
+					hb.WriteElementOpen("input", "type", "hidden", "name", "editoraction", "value", "undelete")
 					hb.WriteElementOpen("input", "type", "hidden", "name", "url", "value", rd.Canonical)
 					hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "undelete"))
 					hb.WriteElementClose("form")
@@ -1396,7 +1368,7 @@ func (a *goBlog) renderEditor(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			hb.WriteElementClose("h2")
 			_ = a.renderMarkdownToWriter(hb, a.editorPostDesc(rd.Blog), false)
 			hb.WriteElementOpen("form", "method", "post", "class", "fw p")
-			hb.WriteElementOpen("input", "type", "hidden", "name", "h", "value", "entry")
+			hb.WriteElementOpen("input", "type", "hidden", "name", "editoraction", "value", "createpost")
 			hb.WriteElementOpen(
 				"input", "id", "templatebtn", "type", "button",
 				"value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "editorusetemplate"),

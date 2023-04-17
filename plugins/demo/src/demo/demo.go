@@ -22,9 +22,10 @@ func GetPlugin() (
 	plugintypes.UI2,
 	plugintypes.Exec,
 	plugintypes.Middleware,
+	plugintypes.UISummary,
 ) {
 	p := &plugin{}
-	return p, p, p, p, p, p
+	return p, p, p, p, p, p, p
 }
 
 // SetApp
@@ -54,8 +55,8 @@ func (*plugin) Render(_ plugintypes.RenderContext, rendered io.Reader, modified 
 	_ = goquery.Render(modified, doc.Selection)
 }
 
-// UI
-func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.Document) {
+// UI2
+func (p *plugin) RenderWithDocument(_ plugintypes.RenderContext, doc *goquery.Document) {
 	buf := bufferpool.Get()
 	defer bufferpool.Put(buf)
 	hb := htmlbuilder.NewHtmlBuilder(buf)
@@ -96,4 +97,9 @@ func (p *plugin) Handler(next http.Handler) http.Handler {
 		w.Header().Set("X-Demo", fmt.Sprintf("This is from the demo middleware with prio %d", p.Prio()))
 		next.ServeHTTP(w, r)
 	})
+}
+
+// UISummary
+func (p *plugin) RenderSummaryForPost(rc plugintypes.RenderContext, post plugintypes.Post, doc *goquery.Document) {
+	doc.Find(".h-entry").AppendHtml(fmt.Sprintf("<p>Summary for post %s on %s</p>", post.GetPath(), rc.GetURL()))
 }
