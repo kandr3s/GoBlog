@@ -5,8 +5,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"time"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
@@ -24,9 +25,9 @@ type plugin struct {
 	nowPlaying *Track
 }
 
-func GetPlugin() (plugintypes.SetConfig, plugintypes.SetApp, plugintypes.UI) {
+func GetPlugin() (plugintypes.SetConfig, plugintypes.SetApp, plugintypes.UI, plugintypes.UI2) {
 	p := &plugin{}
-	return p, p, p
+	return p, p, p, p
 }
 
 type Lfm struct {
@@ -76,7 +77,7 @@ func (p *plugin) SetConfig(config map[string]any) {
 func (p *plugin) SetApp(app plugintypes.App) {
 	p.app = app
 
-	// Start ticker to refresh now playing every 5 minutes
+	// Start ticker to refresh now playing every 2 minutes
 	ticker := time.NewTicker(2 * time.Minute)
 	done := make(chan bool)
 	go func() {
@@ -153,7 +154,7 @@ func (p *plugin) fetchNowPlaying() {
 			timestamp := time.Unix(int64(unixTimestamp), 0)
 			if time.Since(timestamp) < 10*time.Minute {
 				p.nowPlaying = track
-				break
+				p.app.PurgeCache()
 			} else {
 				continue
 			}
@@ -186,23 +187,36 @@ func (p *plugin) Render(rc plugintypes.RenderContext, rendered io.Reader, modifi
 	hb := htmlbuilder.NewHtmlBuilder(buf)
 
 	track := p.nowPlaying
-	hb.WriteElementOpen("a", "href", "/listens", "style", "color:var(--primary)")
-	hb.WriteElementOpen("div", "class", "nowplaying")
-		hb.WriteElementOpen("img", "src", "https://kandr3s.co/smilies/listening.gif", "title", "Now playing", "style", "width:auto;height:25px")
-		hb.WriteElementOpen("span")
-		hb.WriteElementOpen("marquee", "bahaviour", "scroll", "direction", "left")
-		hb.WriteElementOpen("img", "src", track.Image[0].Text, "title", track.Name, "class", "nowplaying-art", "alt", track.Album.Text)
-		hb.WriteElementOpen("em")
-		hb.WriteEscaped(track.Name)
-		hb.WriteElementClose("em")
-		hb.WriteEscaped(" by ")
-		hb.WriteElementOpen("b")
-		hb.WriteEscaped(track.Artist.Text)
-		hb.WriteElementClose("b")
-		hb.WriteElementClose("marquee")
-		hb.WriteElementClose("span")
-	hb.WriteElementClose("div")
+	hb.WriteElementOpen("a", "class", "nowplaying", "rel", "nofollow ugc", "alt", "Now playing", "href", "/listens/nowplaying", "style", "margin: -7px -3px")
+	hb.WriteElementOpen("img", "src", "https://kandr3s.co/smilies/listening.gif", "alt", "Now playing", "title", "🎧 Now playing: "+track.Name+" by "+track.Artist.Text)
 	hb.WriteElementClose("a")
-	doc.Find("main").PrependHtml(buf.String())
+	doc.Find("header div.social-icons").AppendHtml(buf.String())
 	_ = goquery.Render(modified, doc.Selection)
+}
+
+func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.Document) {
+
+	path := rc.GetPath()
+	track := p.nowPlaying
+
+	if p.nowPlaying == nil {
+		return
+	}
+
+	buf := bufferpool.Get()
+	defer bufferpool.Put(buf)
+	hb := htmlbuilder.NewHtmlBuilder(buf)
+
+	if strings.Contains(path, "/listens") {
+		hb.WriteElementOpen("img", "src", track.Image[len(track.Image)-1].Text, "title", track.Name+" by "+track.Artist.Text, "alt", track.Album.Text+" album cover")
+		hb.WriteElementOpen("div", "class", "np-info")
+		hb.WriteElementOpen("span", "class", "np-title")
+		hb.WriteEscaped(track.Name)
+		hb.WriteElementClose("span")
+		hb.WriteElementOpen("span", "class", "np-artist")
+		hb.WriteEscaped(track.Artist.Text)
+		hb.WriteElementClose("span")
+		hb.WriteElementClose("div")
+		doc.Find(".np-track").AppendHtml(buf.String())
+	}
 }

@@ -1,13 +1,26 @@
-A plugin to add Microformats to "[Watches](https://indieweb.org/watch)" and syndicate Letterboxd diary entries to GoBlog.
+# GoBlog-Letterboxd
 
-**TODO:**
+A [GoBlog](https://github.com/jlelse/GoBlog) plugin that uses RSS and Micropub to create an archive copy on your site of a Letterboxd film diary.
 
-[ ] Add Microformats in Watches (Fetched from Letterboxd)
+## Config
+```yaml
+- path: ./plugins/letterboxd
+    import: letterboxd
+    config:
+      username: "user" # Letterboxd Username
+      blogURL: "http://goblog.url" # GoBlog instance URL
+      section: "section" # GoBlog's Watches Section
+      token: "MICROPUB-TOKEN" # GoBlog's Micropub Token
+```
 
-[ ] Fetch data directly from the Letterboxd feed.
+**Demo:** 📺 [Watches](https://kandr3s.co/watches)
 
-[ ] Implement “Rewatched”
+---
 
-[ ] Automatically fetch movie backdrops when available. 
+### TO-DO
 
-Currently only checks for letterboxd.com link in the syndication parameter and adds the “u-photo” class to any `<img>` element within the post.
+- [x] Add Microformats in Watches (Fetched from Letterboxd)
+- [x] Fetch data directly from the Letterboxd feed
+- [x] Implement “Rewatched”
+- [x] Set up variables in GoBlog's config
+- [ ] Automatically fetch movie backdrops 

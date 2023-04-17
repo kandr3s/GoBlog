@@ -1,8 +1,6 @@
 package syndication
 
 import (
-	"fmt"
-	"io"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -52,6 +50,11 @@ func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.D
 		twitter := "twitter.com"
 		boxd := "boxd"
 		micro := "micro.blog"
+		bridgy := "brid.gy"
+		if strings.Contains(link, bridgy) {
+			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "title", "This post is part of The Fediverse")
+			hb.WriteElementClose("a")
+		}
 		if strings.Contains(link, rym) {
 			hb.WriteElementOpen("span", "class", "syndication")
 			hb.WriteElementOpen("a", "href", link, "class", "sonemic", "rel", "syndication", "title", "This post on RYM/Sonemic")

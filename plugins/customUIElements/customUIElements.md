@@ -14,5 +14,7 @@ A GoBlog plugin to manage custom UI elements.
 
 ### TODO
 
-- [x] Integrate Icons Plugins
+- [x] Integrate Social Icons Plugins
+- [x] Timeline style
+- [x] Section Emoji/Icons
 - [] Move custom menus here.
