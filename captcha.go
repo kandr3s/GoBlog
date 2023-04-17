@@ -36,7 +36,7 @@ func (a *goBlog) captchaMiddleware(next http.Handler) http.Handler {
 			a.serveError(w, r, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if captcha, ok := ses.Values["captcha"]; ok && captcha == true {
+		if captchaVal, ok := ses.Values["captcha"]; ok && captchaVal == true {
 			// Captcha already solved
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), captchaSolvedKey, true)))
 			return
@@ -69,10 +69,9 @@ func (a *goBlog) captchaMiddleware(next http.Handler) http.Handler {
 			// Maybe it's a form
 			_ = r.ParseForm()
 			// Encode form
-			sw, _ := io.WriteString(bodyEncoder, r.Form.Encode())
-			written = int64(sw)
+			written = int64(noError(io.WriteString(bodyEncoder, r.Form.Encode())))
 		}
-		bodyEncoder.Close()
+		_ = bodyEncoder.Close()
 		if written >= limit {
 			a.serveError(w, r, "Request body too large, first login", http.StatusRequestEntityTooLarge)
 			return

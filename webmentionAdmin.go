@@ -19,12 +19,11 @@ type webmentionPaginationAdapter struct {
 	db      *database
 }
 
-var _ paginator.Adapter = &webmentionPaginationAdapter{}
+var _ paginator.Adapter = (*webmentionPaginationAdapter)(nil)
 
 func (p *webmentionPaginationAdapter) Nums() (int64, error) {
 	p.getNums.Do(func() {
-		nums, _ := p.db.countWebmentions(p.config)
-		p.nums = int64(nums)
+		p.nums = int64(noError(p.db.countWebmentions(p.config)))
 	})
 	return p.nums, nil
 }

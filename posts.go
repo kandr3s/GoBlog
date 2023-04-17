@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -41,11 +42,11 @@ const (
 
 	statusNil              postStatus = ""
 	statusPublished        postStatus = "published"
-	statusPublishedDeleted postStatus = statusPublished + statusDeletedSuffix
+	statusPublishedDeleted            = statusPublished + statusDeletedSuffix
 	statusDraft            postStatus = "draft"
-	statusDraftDeleted     postStatus = statusDraft + statusDeletedSuffix
+	statusDraftDeleted                = statusDraft + statusDeletedSuffix
 	statusScheduled        postStatus = "scheduled"
-	statusScheduledDeleted postStatus = statusScheduled + statusDeletedSuffix
+	statusScheduledDeleted            = statusScheduled + statusDeletedSuffix
 
 	visibilityNil      postVisibility = ""
 	visibilityPublic   postVisibility = "public"
@@ -138,8 +139,7 @@ type postPaginationAdapter struct {
 
 func (p *postPaginationAdapter) Nums() (int64, error) {
 	if p.nums == 0 {
-		nums, _ := p.a.db.countPosts(p.config)
-		p.nums = int64(nums)
+		p.nums = int64(noError(p.a.db.countPosts(p.config)))
 	}
 	return p.nums, nil
 }
@@ -162,7 +162,7 @@ func (a *goBlog) serveHome(w http.ResponseWriter, r *http.Request) {
 	}
 	a.serveIndex(w, r.WithContext(context.WithValue(r.Context(), indexConfigKey, &indexConfig{
 		path:     a.getRelativePath(blog, ""),
-		sections: lo.Values(bc.Sections),
+		sections: lo.Filter(lo.Values(bc.Sections), func(s *configSection, _ int) bool { return !s.HideOnStart }),
 	})))
 }
 
@@ -219,7 +219,30 @@ func (a *goBlog) serveDeleted(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *goBlog) serveDate(w http.ResponseWriter, r *http.Request) {
-	var year, month, day int
+	year, month, day, title, datePath := a.extractDate(r)
+	if year == 0 && month == 0 && day == 0 {
+		a.serve404(w, r)
+		return
+	}
+	var ic *indexConfig
+	if cv := r.Context().Value(indexConfigKey); cv != nil {
+		origIc := *(cv.(*indexConfig))
+		copyIc := origIc
+		ic = &copyIc
+		ic.path = path.Join(ic.path, datePath)
+		ic.titleSuffix = ": " + title
+	} else {
+		_, bc := a.getBlog(r)
+		ic = &indexConfig{
+			path:  bc.getRelativePath(datePath),
+			title: title,
+		}
+	}
+	ic.year, ic.month, ic.day = year, month, day
+	a.serveIndex(w, r.WithContext(context.WithValue(r.Context(), indexConfigKey, ic)))
+}
+
+func (a *goBlog) extractDate(r *http.Request) (year, month, day int, title, datePath string) {
 	if ys := chi.URLParam(r, "year"); ys != "" && ys != "x" {
 		year = stringToInt(ys)
 	}
@@ -229,38 +252,29 @@ func (a *goBlog) serveDate(w http.ResponseWriter, r *http.Request) {
 	if ds := chi.URLParam(r, "day"); ds != "" {
 		day = stringToInt(ds)
 	}
-	if year == 0 && month == 0 && day == 0 {
-		a.serve404(w, r)
-		return
-	}
-	title, dPath := bufferpool.Get(), bufferpool.Get()
+	titleBuf, pathBuf := bufferpool.Get(), bufferpool.Get()
+	defer bufferpool.Put(titleBuf, pathBuf)
 	if year != 0 {
-		_, _ = fmt.Fprintf(title, "%0004d", year)
-		_, _ = fmt.Fprintf(dPath, "%0004d", year)
+		_, _ = fmt.Fprintf(titleBuf, "%0004d", year)
+		_, _ = fmt.Fprintf(pathBuf, "%0004d", year)
 	} else {
-		_, _ = title.WriteString("XXXX")
-		_, _ = dPath.WriteString("x")
+		_, _ = titleBuf.WriteString("XXXX")
+		_, _ = pathBuf.WriteString("x")
 	}
 	if month != 0 {
-		_, _ = fmt.Fprintf(title, "-%02d", month)
-		_, _ = fmt.Fprintf(dPath, "/%02d", month)
+		_, _ = fmt.Fprintf(titleBuf, "-%02d", month)
+		_, _ = fmt.Fprintf(pathBuf, "/%02d", month)
 	} else if day != 0 {
-		_, _ = title.WriteString("-XX")
-		_, _ = dPath.WriteString("/x")
+		_, _ = titleBuf.WriteString("-XX")
+		_, _ = pathBuf.WriteString("/x")
 	}
 	if day != 0 {
-		_, _ = fmt.Fprintf(title, "-%02d", day)
-		_, _ = fmt.Fprintf(dPath, "/%02d", day)
+		_, _ = fmt.Fprintf(titleBuf, "-%02d", day)
+		_, _ = fmt.Fprintf(pathBuf, "/%02d", day)
 	}
-	_, bc := a.getBlog(r)
-	a.serveIndex(w, r.WithContext(context.WithValue(r.Context(), indexConfigKey, &indexConfig{
-		path:  bc.getRelativePath(dPath.String()),
-		year:  year,
-		month: month,
-		day:   day,
-		title: title.String(),
-	})))
-	bufferpool.Put(title, dPath)
+	title = titleBuf.String()
+	datePath = pathBuf.String()
+	return
 }
 
 type indexConfig struct {
@@ -272,6 +286,7 @@ type indexConfig struct {
 	parameter        string
 	year, month, day int
 	title            string
+	titleSuffix      string
 	description      string
 	summaryTemplate  summaryTyp
 	status           []postStatus
@@ -324,16 +339,24 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 		a.serveError(w, r, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Meta
-	title := ic.title
-	description := ic.description
-	if ic.tax != nil {
-		title = fmt.Sprintf("%s: %s", ic.tax.Title, ic.taxValue)
+	// Title
+	var title string
+	if ic.title != "" {
+		title = ic.title
 	} else if ic.section != nil {
 		title = ic.section.Title
-		description = ic.section.Description
+	} else if ic.tax != nil {
+		title = fmt.Sprintf("%s: %s", ic.tax.Title, ic.taxValue)
 	} else if search != "" {
 		title = fmt.Sprintf("%s: %s", bc.Search.Title, search)
+	}
+	title += ic.titleSuffix
+	// Description
+	var description string
+	if ic.description != "" {
+		description = ic.description
+	} else if ic.section != nil {
+		description = ic.section.Description
 	}
 	// Check if feed
 	if ft := feedType(chi.URLParam(r, "feed")); ft != noFeed {
