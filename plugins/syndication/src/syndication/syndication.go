@@ -2,9 +2,7 @@ package syndication
 
 import (
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -118,27 +116,37 @@ func (p *plugin) syndicate(post plugintypes.Post) {
 	syndicateTo := p.app.GetSyndicationTargets()
 	targets := post.GetParameter("syndication")
 
-	for _, target := range targets {
-		if contains(syndicateTo, target) {
-			endpoint, err := discoverWebmentionEndpoint(target)
-			if err != nil {
-				// TODO handle non-webmention Syndication Targets
-				fmt.Println("Syndication plugin: Error discovering Webmention endpoint:", err)
-				continue
-			}
+	if targets == nil {
+		return
+	}
 
-			data := map[string][]string{
-				"source": {source},
-				"target": {target},
-			}
+	for _, syndicationLink := range targets {
+		for i, target := range syndicateTo {
+			if strings.Contains(target, syndicationLink) {
+				data := map[string][]string{
+					"source": {source},
+					"target": {target},
+				}
 
-			resp, err := http.PostForm(endpoint, data)
-			if err != nil {
-				fmt.Println("Syndication plugin: Error sending webmention:", err)
-				continue
-			}
+				resp, err := http.PostForm(target, data)
+				if err != nil {
+					fmt.Println("Syndication plugin: Error sending webmention:", err)
+					continue
+				}
 
-			fmt.Printf("Syndication plugin: Webmention sent. Result: %s", resp.Status)
+				fmt.Printf("Syndication plugin: Webmention sent to '%s'. Result: %s", target, resp.Status)
+				if err != nil {
+					fmt.Println("Syndication plugin: Error sending Webmention:", err)
+					fmt.Println("Sending Ping instead...")
+					req, err := http.NewRequest("POST", target, nil)
+					if err != nil {
+						fmt.Println("Error sending ping request:", err)
+						return
+					}
+					fmt.Printf("Ping sent to '%s' - Result: %s", target, req.Response.Status)
+					continue
+				}
+			}
 		}
 	}
 }
@@ -151,68 +159,4 @@ func contains(array []string, target string) bool {
 		}
 	}
 	return false
-}
-
-// Discover Webmention Endpoint
-func discoverWebmentionEndpoint(targetURL string) (string, error) {
-	u, err := url.Parse(targetURL)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.Get(u.String())
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	endpoint, err := parseWebmentionEndpoint(resp.Body, targetURL) // Pass targetURL as baseURL argument
-	if err != nil {
-		return "", err
-	}
-
-	// Resolve the endpoint URL relative to the target URL
-	resolvedURL, err := url.Parse(endpoint)
-	if err != nil {
-		return "", err
-	}
-	resolvedURL = u.ResolveReference(resolvedURL)
-
-	return resolvedURL.String(), nil
-}
-
-// Parse response and find Webmention endpoint
-func parseWebmentionEndpoint(body io.Reader, baseURL string) (string, error) {
-	doc, err := goquery.NewDocumentFromReader(body)
-	if err != nil {
-		return "", err
-	}
-
-	endpoint := ""
-	foundEndpoint := false
-
-	doc.Find("link[rel=webmention]").Each(func(i int, s *goquery.Selection) {
-		href, exists := s.Attr("href")
-		if exists && !foundEndpoint {
-			u, err := url.Parse(href)
-			if err != nil {
-				return
-			}
-
-			if u.IsAbs() {
-				endpoint = href
-			} else {
-				base, err := url.Parse(baseURL)
-				if err != nil {
-					return
-				}
-
-				endpoint = base.ResolveReference(u).String()
-			}
-
-			foundEndpoint = true
-		}
-	})
-
-	return endpoint, nil
 }
