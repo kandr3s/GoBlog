@@ -32,7 +32,7 @@ func (a *goBlog) renderSummary(origHb *htmlbuilder.HtmlBuilder, rd *renderData, 
 	})
 	defer finish()
 	// Start article
-	hb.WriteElementOpen("article", "class", "h-entry border-bottom")
+	hb.WriteElementOpen("article", "class", "h-entry")
 	if p.Priority > 0 {
 		// Is pinned post
 		hb.WriteElementOpen("p")
@@ -51,12 +51,12 @@ func (a *goBlog) renderSummary(origHb *htmlbuilder.HtmlBuilder, rd *renderData, 
 	// Show photos in photo summary
 	photos := a.photoLinks(p)
 	if typ == photoSummary && len(photos) > 0 {
+		hb.WriteElementOpen("div", "class", "grid-container")
 		for _, photo := range photos {
-			hb.WriteElementOpen("p")
 			hb.WriteElementOpen("img", "src", photo, "class", "u-photo")
 			hb.WriteElementClose("img")
-			hb.WriteElementClose("p")
 		}
+		hb.WriteElementClose("div")
 	}
 	// Post meta
 	a.renderPostMeta(hb, p, bc, "summary")
@@ -73,7 +73,7 @@ func (a *goBlog) renderSummary(origHb *htmlbuilder.HtmlBuilder, rd *renderData, 
 		hb.WriteElementClose("p")
 	}
 	// Show link to full post
-	hb.WriteElementOpen("p")
+	hb.WriteElementOpen("p", "class", "hide")
 	written := 0
 	if len(photos) > 0 {
 		// Contains photos
@@ -88,7 +88,7 @@ func (a *goBlog) renderSummary(origHb *htmlbuilder.HtmlBuilder, rd *renderData, 
 	if written > 0 {
 		hb.WriteUnescaped("&nbsp;")
 	}
-	hb.WriteElementOpen("a", "class", "u-url", "href", p.Path)
+	hb.WriteElementOpen("a", "class", "permalink u-url", "href", p.Path)
 	hb.WriteEscaped(a.ts.GetTemplateStringVariant(bc.Lang, "view"))
 	hb.WriteElementClose("a")
 	hb.WriteElementClose("p")
@@ -146,12 +146,12 @@ func (a *goBlog) renderPostMeta(hb *htmlbuilder.HtmlBuilder, p *post, b *configB
 		hb.WriteElementOpen("div", "class", "post-footer")
 		// Private/Unlisted Flag
 		if p.Visibility == "unlisted" {
-			hb.WriteElementOpen("span", "style", "margin-right: 5px", "title", "unlisted")
+			hb.WriteElementOpen("span", "class", "visibility", "title", "unlisted")
 			hb.WriteUnescaped("🔓")
 			hb.WriteElementClose("span")
 		}
 		if p.Visibility == "private" {
-			hb.WriteElementOpen("span", "style", "margin-right: 5px", "title", "private")
+			hb.WriteElementOpen("span", "class", "visibility", "title", "private")
 			hb.WriteUnescaped("🔒")
 			hb.WriteElementClose("span")
 		}
@@ -327,12 +327,15 @@ func (a *goBlog) renderTranslateButton(hb *htmlbuilder.HtmlBuilder, p *post, b *
 
 func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 	// Start accordion
-	hb.WriteElementOpen("details", "class", "p", "id", "interactions")
+	hb.WriteElementOpen("details", "id", "interactions", "open", "")
 	hb.WriteElementOpen("summary")
 	hb.WriteElementOpen("strong")
 	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactions"))
 	hb.WriteElementClose("strong")
 	hb.WriteElementClose("summary")
+	hb.WriteElementOpen("p")
+	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactionslabel"))
+	hb.WriteElementClose("p")
 	// Render mentions
 	var renderMentions func(m []*mention)
 	renderMentions = func(m []*mention) {
@@ -375,7 +378,7 @@ func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData)
 	hb.WriteElementClose("textarea")
 	hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "docomment"))
 	hb.WriteElementClose("form")
-	// Show form to send a webmention
+	/* Show form to send a webmention
 	hb.WriteElementOpen("form", "class", "fw p", "method", "post", "action", "/webmention")
 	hb.WriteElementOpen("label", "for", "wm-source", "class", "p")
 	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactionslabel"))
@@ -383,7 +386,7 @@ func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData)
 	hb.WriteElementOpen("input", "id", "wm-source", "type", "url", "name", "source", "placeholder", "URL", "required", "")
 	hb.WriteElementOpen("input", "type", "hidden", "name", "target", "value", rd.Canonical)
 	hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "send"))
-	hb.WriteElementClose("form")
+	hb.WriteElementClose("form") */
 	// Finish accordion
 	hb.WriteElementClose("details")
 }
@@ -398,10 +401,14 @@ func (a *goBlog) renderAuthor(hb *htmlbuilder.HtmlBuilder) {
 	if a.hasProfileImage() {
 		hb.WriteElementOpen("data", "class", "u-photo", "value", a.getFullAddress(a.profileImagePath(profileImageFormatJPEG, 0, 0)))
 		hb.WriteElementClose("data")
+		hb.WriteElementOpen("image", "class", "u-featured", "src", "https://kandr3s.co/m/3b671389b5ca7d9de5c8f6cc27a23073234178fd6404f220dea3015bf4c7c099.jpg")
+		hb.WriteElementClose("image")
 	}
 	if user.Name != "" {
 		hb.WriteElementOpen("a", "class", "p-name u-url", "rel", "me", "href", defaultIfEmpty(user.Link, "/"))
 		hb.WriteEscaped(user.Name)
+		hb.WriteElementClose("a")
+		hb.WriteElementOpen("a", "class", "u-url", "href", "acct:kandr3s@kandr3s.co")
 		hb.WriteElementClose("a")
 		hb.WriteElementOpen("data", "class", "p-note", "value", user.Description)
 		hb.WriteElementClose("data")
@@ -466,12 +473,12 @@ func (a *goBlog) renderPagination(hb *htmlbuilder.HtmlBuilder, blog *configBlog,
 	hb.WriteElementOpen("div", "class", "pagination")
 	if hasPrev {
 		hb.WriteElementOpen("a", "href", prev, "class", "prev-page", "title", "Previous Page", "title", a.ts.GetTemplateStringVariant(blog.Lang, "prev"))
-		hb.WriteUnescaped("Previous")
+		hb.WriteUnescaped("←")
 		hb.WriteElementClose("a")
 	}
 	if hasNext {
 		hb.WriteElementOpen("a", "href", next, "class", "next-page", "title", "Next Page", "title", a.ts.GetTemplateStringVariant(blog.Lang, "next"))
-		hb.WriteUnescaped("Next")
+		hb.WriteUnescaped("→")
 		hb.WriteElementClose("a")
 	}
 	hb.WriteElementClose("div")

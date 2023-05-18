@@ -188,7 +188,7 @@ func toLocalTime(date string) time.Time {
 	return d.Local()
 }
 
-const isoDateFormat = "2006-01-02"
+const isoDateFormat = "January 2, 2006"
 
 func utcNowString() string {
 	return time.Now().UTC().Format(time.RFC3339)

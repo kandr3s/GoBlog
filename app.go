@@ -100,4 +100,8 @@ type goBlog struct {
 	// Tor
 	torAddress  string
 	torHostname string
+	// GetBlogURL
+	getBlogURL string
+	// Syndication Targets
+	getSyndicationTargets []string
 }

@@ -42,6 +42,8 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		a.renderTitleTag(hb, rd.Blog, "")
 	}
 	renderedBlogTitle := a.renderMdTitle(rd.Blog.Title)
+	// Meta Description
+	hb.WriteElementOpen("meta", "name", "description", "content", "🇨🇴 Autodidact documenting life on the IndieWeb and thinking out-loud about Free software, Football and Rock & Roll. @kandr3s")
 	// Feeds
 	hb.WriteElementOpen("link", "rel", "alternate", "type", "application/rss+xml", "title", fmt.Sprintf("RSS (%s)", renderedBlogTitle), "href", a.getFullAddress(rd.Blog.Path+".rss"))
 	hb.WriteElementOpen("link", "rel", "alternate", "type", "application/atom+xml", "title", fmt.Sprintf("ATOM (%s)", renderedBlogTitle), "href", a.getFullAddress(rd.Blog.Path+".atom"))
@@ -76,6 +78,25 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		_ = a.renderMarkdownToWriter(hb, ann.Text, false)
 		hb.WriteElementClose("div")
 	}
+	// Header
+	hb.WriteElementOpen("header")
+	// Blog image
+	hb.WriteElementOpen("a", "href", "/", "rel", "home", "logo", renderedBlogTitle, "translate", "no")
+	hb.WriteElementOpen("img", "src", a.getFullAddress(a.profileImagePath(profileImageFormatJPEG, 0, 0)), "class", "avatar", "alt", renderedBlogTitle, "title", renderedBlogTitle)
+	hb.WriteElementClose("img")
+	hb.WriteElementClose("a")
+	// Blog title
+	hb.WriteElementOpen("h1")
+	hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/"), "rel", "home", "title", renderedBlogTitle, "translate", "no")
+	hb.WriteEscaped(renderedBlogTitle)
+	hb.WriteElementClose("a")
+	hb.WriteElementClose("h1")
+	// Blog description
+	if rd.Blog.Description != "" {
+		hb.WriteElementOpen("p")
+		hb.WriteEscaped(rd.Blog.Description)
+		hb.WriteElementClose("p")
+	}
 	// Logged-in user menu
 	if rd.LoggedIn() {
 		hb.WriteElementOpen("nav", "class", "user-menu")
@@ -89,7 +110,7 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		if rd.WebmentionReceivingEnabled {
 			hb.WriteUnescaped(" &bull; ")
 			hb.WriteElementOpen("a", "href", "/webmention", "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "webmentions"))
-			hb.WriteEscaped("🌐")
+			hb.WriteEscaped("📢")
 			hb.WriteElementClose("a")
 		}
 		if rd.Blog.commentsEnabled() {
@@ -108,43 +129,22 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		hb.WriteElementClose("a")
 		hb.WriteElementClose("nav")
 	}
-	// Header
-	hb.WriteElementOpen("header")
-	// Blog image
-	hb.WriteElementOpen("a", "href", "/", "rel", "home", "logo", renderedBlogTitle, "translate", "no")
-	hb.WriteElementOpen("img", "src", a.getFullAddress(a.profileImagePath(profileImageFormatJPEG, 0, 0)), "class", "profile-pic", "alt", "Blog image", "title", renderedBlogTitle)
-	hb.WriteElementClose("img")
-	hb.WriteElementClose("a")
-	// Blog title
-	hb.WriteElementOpen("h1")
-	hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/"), "rel", "home", "title", renderedBlogTitle, "translate", "no")
-	hb.WriteEscaped(renderedBlogTitle)
-	hb.WriteElementClose("a")
-	hb.WriteElementClose("h1")
-	// Blog description
-	if rd.Blog.Description != "" {
-		hb.WriteElementOpen("p")
-		hb.WriteEscaped(rd.Blog.Description)
-		hb.WriteElementClose("p")
-	}
 	// Main menu
 	if mm, ok := rd.Blog.Menus["main"]; ok {
 		hb.WriteElementOpen("label", "for", "show-menu", "class", "show-menu menu-icon")
-		hb.WriteUnescaped("🏠 Explore")
+		hb.WriteUnescaped("☰")
 		hb.WriteElementClose("label")
 		hb.WriteElementOpen("input", "type", "checkbox", "id", "show-menu", "role", "button")
-		hb.WriteElementOpen("ul", "class", "navbar menu", "id", "menu", "open")
-		for i, item := range mm.Items {
-			if i > 0 {
-				// hb.WriteUnescaped(" &bull; ")
-			}
-			hb.WriteElementOpen("li")
+		hb.WriteElementOpen("nav", "class", "menu", "id", "menu", "open")
+		for _, item := range mm.Items {
+			// if _blank > 0 {
+			// 	hb.WriteUnescaped(" &bull; ")
+			// }
 			hb.WriteElementOpen("a", "href", item.Link)
 			hb.WriteEscaped(a.renderMdTitle(item.Title))
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("li")
 		}
-		hb.WriteElementClose("ul")
+		hb.WriteElementClose("nav")
 	}
 	hb.WriteElementClose("header")
 	// Main
@@ -391,7 +391,7 @@ func (a *goBlog) renderIndex(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				_ = a.renderMarkdownToWriter(hb, id.description, false)
 			}
 			if titleOrDesc {
-				hb.WriteElementOpen("hr")
+				//	hb.WriteElementOpen("hr")
 			}
 			if id.posts != nil && len(id.posts) > 0 {
 				// Posts

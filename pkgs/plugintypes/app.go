@@ -27,6 +27,8 @@ type App interface {
 	SetPostParameter(path string, parameter string, values []string) error
 	// Render markdown as text (without HTML)
 	RenderMarkdownAsText(markdown string) (text string, err error)
+	GetBlogURL() string
+	GetSyndicationTargets() []string
 }
 
 // Database is used to provide access to GoBlog's database.

@@ -71,6 +71,9 @@ func (a *goBlog) serveMicropubQuery(w http.ResponseWriter, r *http.Request) {
 	case "channel":
 		channels := a.getMicropubChannelsMap()
 		result = map[string]any{"channels": channels}
+	case "syndicate-to":
+		syndicationTargets := a.GetSyndicationQuery()
+		result = map[string]any{"syndicate-to": syndicationTargets}
 	default:
 		a.serve404(w, r)
 		return
@@ -98,6 +101,19 @@ func (a *goBlog) getMicropubChannelsMap() []map[string]any {
 		}
 	}
 	return channels
+}
+
+func (a *goBlog) GetSyndicationQuery() []map[string]interface{} {
+	syndicationTargets := []map[string]interface{}{}
+	for _, blog := range a.cfg.Blogs {
+		for _, target := range blog.SyndicationTargets {
+			syndicationTargets = append(syndicationTargets, map[string]interface{}{
+				"name": target.Name,
+				"uid":  target.UId,
+			})
+		}
+	}
+	return syndicationTargets
 }
 
 func (a *goBlog) serveMicropubPost(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +251,10 @@ func (a *goBlog) micropubParseValuePostParamsValueMap(entry *post, values map[st
 		entry.Parameters[a.cfg.Micropub.LocationParam] = location
 		delete(values, "location")
 	}
+	if syndication, ok := values["mp-syndicate-to"]; ok && len(syndication) > 0 {
+		entry.Parameters["syndication"] = syndication
+		delete(values, "mp-syndicate-to")
+	}
 	for n, p := range values {
 		entry.Parameters[n] = append(entry.Parameters[n], p...)
 	}
@@ -260,21 +280,22 @@ type microformatItem struct {
 }
 
 type microformatProperties struct {
-	Name       []string `json:"name,omitempty"`
-	Published  []string `json:"published,omitempty"`
-	Updated    []string `json:"updated,omitempty"`
-	PostStatus []string `json:"post-status,omitempty"`
-	Visibility []string `json:"visibility,omitempty"`
-	Category   []string `json:"category,omitempty"`
-	Content    []string `json:"content,omitempty"`
-	URL        []string `json:"url,omitempty"`
-	InReplyTo  []string `json:"in-reply-to,omitempty"`
-	LikeOf     []string `json:"like-of,omitempty"`
-	BookmarkOf []string `json:"bookmark-of,omitempty"`
-	MpSlug     []string `json:"mp-slug,omitempty"`
-	Photo      []any    `json:"photo,omitempty"`
-	Audio      []string `json:"audio,omitempty"`
-	MpChannel  []string `json:"mp-channel,omitempty"`
+	Name          []string `json:"name,omitempty"`
+	Published     []string `json:"published,omitempty"`
+	Updated       []string `json:"updated,omitempty"`
+	PostStatus    []string `json:"post-status,omitempty"`
+	Visibility    []string `json:"visibility,omitempty"`
+	Category      []string `json:"category,omitempty"`
+	Content       []string `json:"content,omitempty"`
+	URL           []string `json:"url,omitempty"`
+	InReplyTo     []string `json:"in-reply-to,omitempty"`
+	LikeOf        []string `json:"like-of,omitempty"`
+	BookmarkOf    []string `json:"bookmark-of,omitempty"`
+	MpSlug        []string `json:"mp-slug,omitempty"`
+	Photo         []any    `json:"photo,omitempty"`
+	Audio         []string `json:"audio,omitempty"`
+	MpChannel     []string `json:"mp-channel,omitempty"`
+	MpSyndication []string `json:"mp-syndication,omitempty"`
 }
 
 func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem) error {
@@ -300,6 +321,9 @@ func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem)
 	}
 	if len(mf.Properties.MpChannel) > 0 {
 		entry.setChannel(mf.Properties.MpChannel[0])
+	}
+	if len(mf.Properties.MpSyndication) > 0 {
+		entry.Slug = mf.Properties.MpSyndication[0]
 	}
 	// Status
 	if len(mf.Properties.PostStatus) > 0 {

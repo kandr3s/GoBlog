@@ -166,3 +166,17 @@ func (p *post) GetBlog() string {
 func (b *configBlog) GetLanguage() string {
 	return b.Lang
 }
+
+func (b *goBlog) GetBlogURL() string {
+	return b.cfg.Server.PublicAddress
+}
+
+func (b *goBlog) GetSyndicationTargets() []string {
+	syndicationTargets := []string{}
+	for _, blog := range b.cfg.Blogs {
+		for _, target := range blog.SyndicationTargets {
+			syndicationTargets = append(syndicationTargets, target.UId)
+		}
+	}
+	return syndicationTargets
+}

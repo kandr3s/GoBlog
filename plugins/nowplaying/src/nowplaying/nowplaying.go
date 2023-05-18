@@ -187,10 +187,15 @@ func (p *plugin) Render(rc plugintypes.RenderContext, rendered io.Reader, modifi
 	hb := htmlbuilder.NewHtmlBuilder(buf)
 
 	track := p.nowPlaying
-	hb.WriteElementOpen("a", "class", "nowplaying", "rel", "nofollow ugc", "alt", "Now playing", "href", "/listens/nowplaying", "style", "margin: -7px -3px")
-	hb.WriteElementOpen("img", "src", "https://kandr3s.co/smilies/listening.gif", "alt", "Now playing", "title", "🎧 Now playing: "+track.Name+" by "+track.Artist.Text)
+	hb.WriteElementOpen("a", "title", "🎧 Now playing: "+track.Name+" by "+track.Artist.Text, "rel", "nofollow ugc", "alt", "Now playing", "href", "/listens/nowplaying", "style", "margin: -6px 0")
+	hb.WriteElementOpen("div", "class", "nowplaying")
+	hb.WriteElementOpen("img", "src", "https://kandr3s.co/smilies/listening.gif", "alt", "Now playing")
+	hb.WriteElementOpen("marquee", "onmouseover", "this.stop();", "onmouseout", "this.start();")
+	hb.WriteUnescaped(track.Name + " by " + track.Artist.Text)
+	hb.WriteElementClose("marquee")
+	hb.WriteElementClose("div")
 	hb.WriteElementClose("a")
-	doc.Find("header div.social-icons").AppendHtml(buf.String())
+	doc.Find("main").PrependHtml(buf.String())
 	_ = goquery.Render(modified, doc.Selection)
 }
 
@@ -207,11 +212,18 @@ func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.D
 	defer bufferpool.Put(buf)
 	hb := htmlbuilder.NewHtmlBuilder(buf)
 
+	trackImage := track.Image[len(track.Image)-1].Text
+	if trackImage == "" {
+		trackImage = "https://lastfm.freetls.fastly.net/i/u/64s/4128a6eb29f94943c9d206c08e625904.jpg"
+	}
+
 	if strings.Contains(path, "/listens") {
-		hb.WriteElementOpen("img", "src", track.Image[len(track.Image)-1].Text, "title", track.Name+" by "+track.Artist.Text, "alt", track.Album.Text+" album cover")
+		hb.WriteElementOpen("img", "src", trackImage, "title", track.Name+" by "+track.Artist.Text, "alt", track.Album.Text+" album cover")
 		hb.WriteElementOpen("div", "class", "np-info")
 		hb.WriteElementOpen("span", "class", "np-title")
+		hb.WriteElementOpen("a", "rel", "nofollow", "href", track.URL)
 		hb.WriteEscaped(track.Name)
+		hb.WriteElementClose("a")
 		hb.WriteElementClose("span")
 		hb.WriteElementOpen("span", "class", "np-artist")
 		hb.WriteEscaped(track.Artist.Text)
