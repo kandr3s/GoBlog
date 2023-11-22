@@ -320,6 +320,9 @@ details[open] summary:after {
 #map {
   height: 400px;
 }
+#map * {
+  max-width: unset;
+}
 
 #announcement {
   padding: 5px;
@@ -360,10 +363,14 @@ footer a {
   #tts,
   #interactions,
   #tor,
+<<<<<<< HEAD
   #menu,
   .category,
   #announcement,
   .pagination {
+=======
+  #announcement {
+>>>>>>> upstream/master
     display: none;
   }
   a {

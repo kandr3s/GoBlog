@@ -339,6 +339,10 @@ details[open] summary:after {
 
 #map {
   height: 400px;
+
+  * {
+    max-width: unset;
+  }
 }
 
 #announcement {

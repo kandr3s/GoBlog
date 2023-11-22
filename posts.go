@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"path"
 	"reflect"
 	"strings"
@@ -291,6 +292,7 @@ type indexConfig struct {
 	summaryTemplate  summaryTyp
 	status           []postStatus
 	visibility       []postVisibility
+	search           string
 }
 
 const defaultPhotosPath = "/photos"
@@ -300,11 +302,6 @@ const indexConfigKey contextKey = "indexConfig"
 func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 	ic := r.Context().Value(indexConfigKey).(*indexConfig)
 	blog, bc := a.getBlog(r)
-	search := chi.URLParam(r, "search")
-	if search != "" {
-		// Decode and sanitize search
-		search = cleanHTMLText(searchDecode(search))
-	}
 	sections := lo.Map(ic.sections, func(i *configSection, _ int) string { return i.Name })
 	if ic.section != nil {
 		sections = append(sections, ic.section.Name)
@@ -318,13 +315,32 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 	if len(visibility) == 0 {
 		visibility = defaultVisibility
 	}
+	// Parameter filter
+	params, paramValues := []string{}, []string{}
+	paramUrlValues := url.Values{}
+	for param, values := range r.URL.Query() {
+		if strings.HasPrefix(param, "p:") {
+			paramKey := strings.TrimPrefix(param, "p:")
+			for _, value := range values {
+				params, paramValues = append(params, paramKey), append(paramValues, value)
+				paramUrlValues.Add(param, value)
+			}
+		}
+	}
+	paramUrlQuery := ""
+	if len(paramUrlValues) > 0 {
+		paramUrlQuery += "?" + paramUrlValues.Encode()
+	}
+	// Create paginator
 	p := paginator.New(&postPaginationAdapter{config: &postsRequestConfig{
 		blog:           blog,
 		sections:       sections,
 		taxonomy:       ic.tax,
 		taxonomyValue:  ic.taxValue,
 		parameter:      ic.parameter,
-		search:         search,
+		allParams:      params,
+		allParamValues: paramValues,
+		search:         ic.search,
 		publishedYear:  ic.year,
 		publishedMonth: ic.month,
 		publishedDay:   ic.day,
@@ -347,8 +363,8 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 		title = ic.section.Title
 	} else if ic.tax != nil {
 		title = fmt.Sprintf("%s: %s", ic.tax.Title, ic.taxValue)
-	} else if search != "" {
-		title = fmt.Sprintf("%s: %s", bc.Search.Title, search)
+	} else if ic.search != "" {
+		title = fmt.Sprintf("%s: %s", bc.Search.Title, ic.search)
 	}
 	title += ic.titleSuffix
 	// Description
@@ -360,13 +376,8 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if feed
 	if ft := feedType(chi.URLParam(r, "feed")); ft != noFeed {
-		a.generateFeed(blog, ft, w, r, posts, title, description)
+		a.generateFeed(blog, ft, w, r, posts, title, description, ic.path, paramUrlQuery)
 		return
-	}
-	// Path
-	path := ic.path
-	if strings.Contains(path, searchPlaceholder) {
-		path = strings.ReplaceAll(path, searchPlaceholder, searchEncode(search))
 	}
 	// Navigation
 	var hasPrev, hasNext bool
@@ -379,9 +390,9 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 		prevPage, _ = p.Page()
 	}
 	if prevPage < 2 {
-		prevPath = path
+		prevPath = ic.path
 	} else {
-		prevPath = fmt.Sprintf("%s/page/%d", strings.TrimSuffix(path, "/"), prevPage)
+		prevPath = fmt.Sprintf("%s/page/%d", strings.TrimSuffix(ic.path, "/"), prevPage)
 	}
 	hasNext, _ = p.HasNext()
 	if hasNext {
@@ -389,23 +400,24 @@ func (a *goBlog) serveIndex(w http.ResponseWriter, r *http.Request) {
 	} else {
 		nextPage, _ = p.Page()
 	}
-	nextPath = fmt.Sprintf("%s/page/%d", strings.TrimSuffix(path, "/"), nextPage)
+	nextPath = fmt.Sprintf("%s/page/%d", strings.TrimSuffix(ic.path, "/"), nextPage)
 	summaryTemplate := ic.summaryTemplate
 	if summaryTemplate == "" {
 		summaryTemplate = defaultSummary
 	}
 	a.render(w, r, a.renderIndex, &renderData{
-		Canonical: a.getFullAddress(path),
+		Canonical: a.getFullAddress(ic.path) + paramUrlQuery,
 		Data: &indexRenderData{
 			title:           title,
 			description:     description,
 			posts:           posts,
 			hasPrev:         hasPrev,
 			hasNext:         hasNext,
-			first:           path,
+			first:           ic.path,
 			prev:            prevPath,
 			next:            nextPath,
 			summaryTemplate: summaryTemplate,
+			paramUrlQuery:   paramUrlQuery,
 		},
 	})
 }

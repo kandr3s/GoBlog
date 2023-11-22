@@ -35,6 +35,7 @@ type config struct {
 	TTS           *configTTS             `mapstructure:"tts"`
 	Reactions     *configReactions       `mapstructure:"reactions"`
 	Pprof         *configPprof           `mapstructure:"pprof"`
+	RobotsTxt     *configRobotsTxt       `mapstructure:"robotstxt"`
 	Debug         bool                   `mapstructure:"debug"`
 	initialized   bool
 }
@@ -360,6 +361,8 @@ type configPlugin struct {
 type configSyndication struct {
 	Name string `mapstructure:"name"`
 	UId  string `mapstructure:"uid"`
+type configRobotsTxt struct {
+	BlockedBots []string `mapstructure:"blockedBots"`
 }
 
 func (a *goBlog) loadConfigFile(file string) error {
@@ -438,7 +441,6 @@ func (a *goBlog) initConfig(logging bool) error {
 	}
 	if a.cfg.Server.PublicHTTPS {
 		a.cfg.Server.HttpsRedirect = true
-		a.cfg.Server.Port = 443
 	}
 	// Check if any blog is configured
 	if a.cfg.Blogs == nil || len(a.cfg.Blogs) == 0 {
@@ -454,10 +456,6 @@ func (a *goBlog) initConfig(logging bool) error {
 	// Check if default blog exists
 	if a.cfg.Blogs[a.cfg.DefaultBlog] == nil {
 		return errors.New("default blog does not exist")
-	}
-	// Set name attribute for every blog
-	for name, blog := range a.cfg.Blogs {
-		blog.name = name
 	}
 	// Check media storage config
 	if ms := a.cfg.Micropub.MediaStorage; ms != nil && ms.MediaURL != "" {
