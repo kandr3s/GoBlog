@@ -7,8 +7,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/kaorimatz/go-opml"
 	"github.com/mergestat/timediff"
-
-	//	"github.com/samber/lo"
+	"github.com/samber/lo"
 	"go.goblog.app/app/pkgs/contenttype"
 	"go.goblog.app/app/pkgs/htmlbuilder"
 	"go.goblog.app/app/pkgs/plugintypes"
@@ -42,8 +41,6 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 		a.renderTitleTag(hb, rd.Blog, "")
 	}
 	renderedBlogTitle := a.renderMdTitle(rd.Blog.Title)
-	// Meta Description
-	hb.WriteElementOpen("meta", "name", "description", "content", "🇨🇴 Autodidact documenting life on the IndieWeb and thinking out-loud about Free software, Football and Rock & Roll. @kandr3s")
 	// Feeds
 	hb.WriteElementOpen("link", "rel", "alternate", "type", "application/rss+xml", "title", fmt.Sprintf("RSS (%s)", renderedBlogTitle), "href", a.getFullAddress(rd.Blog.Path+".rss"))
 	hb.WriteElementOpen("link", "rel", "alternate", "type", "application/atom+xml", "title", fmt.Sprintf("ATOM (%s)", renderedBlogTitle), "href", a.getFullAddress(rd.Blog.Path+".atom"))
@@ -80,11 +77,6 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 	}
 	// Header
 	hb.WriteElementOpen("header")
-	// Blog image
-	hb.WriteElementOpen("a", "href", "/", "rel", "home", "logo", renderedBlogTitle, "translate", "no")
-	hb.WriteElementOpen("img", "src", a.getFullAddress(a.profileImagePath(profileImageFormatJPEG, 0, 0)), "class", "avatar", "alt", renderedBlogTitle, "title", renderedBlogTitle)
-	hb.WriteElementClose("img")
-	hb.WriteElementClose("a")
 	// Blog title
 	hb.WriteElementOpen("h1")
 	hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/"), "rel", "home", "title", renderedBlogTitle, "translate", "no")
@@ -94,56 +86,54 @@ func (a *goBlog) renderBase(hb *htmlbuilder.HtmlBuilder, rd *renderData, title, 
 	// Blog description
 	if rd.Blog.Description != "" {
 		hb.WriteElementOpen("p")
+		hb.WriteElementOpen("i")
 		hb.WriteEscaped(rd.Blog.Description)
+		hb.WriteElementClose("i")
 		hb.WriteElementClose("p")
-	}
-	// Logged-in user menu
-	if rd.LoggedIn() {
-		hb.WriteElementOpen("nav", "class", "user-menu")
-		hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/editor"), "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "editor"))
-		hb.WriteEscaped("💻")
-		hb.WriteElementClose("a")
-		hb.WriteUnescaped(" &bull; ")
-		hb.WriteElementOpen("a", "href", "/notifications", "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "notifications"))
-		hb.WriteEscaped("🔔")
-		hb.WriteElementClose("a")
-		if rd.WebmentionReceivingEnabled {
-			hb.WriteUnescaped(" &bull; ")
-			hb.WriteElementOpen("a", "href", "/webmention", "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "webmentions"))
-			hb.WriteEscaped("📢")
-			hb.WriteElementClose("a")
-		}
-		if rd.Blog.commentsEnabled() {
-			hb.WriteUnescaped(" &bull; ")
-			hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath(commentPath), "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "comments"))
-			hb.WriteEscaped("💬")
-			hb.WriteElementClose("a")
-		}
-		hb.WriteUnescaped(" &bull; ")
-		hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/settings"), "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "settings"))
-		hb.WriteEscaped("⚙️")
-		hb.WriteElementClose("a")
-		hb.WriteUnescaped(" &bull; ")
-		hb.WriteElementOpen("a", "href", "/logout", "title", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "logout"))
-		hb.WriteEscaped("❌")
-		hb.WriteElementClose("a")
-		hb.WriteElementClose("nav")
 	}
 	// Main menu
 	if mm, ok := rd.Blog.Menus["main"]; ok {
-		hb.WriteElementOpen("label", "for", "show-menu", "class", "show-menu menu-icon")
-		hb.WriteUnescaped("☰")
-		hb.WriteElementClose("label")
-		hb.WriteElementOpen("input", "type", "checkbox", "id", "show-menu", "role", "button")
-		hb.WriteElementOpen("nav", "class", "menu", "id", "menu", "open")
+		hb.WriteElementOpen("nav")
 		for _, item := range mm.Items {
-			// if _blank > 0 {
+			// if i > 0 {
 			// 	hb.WriteUnescaped(" &bull; ")
 			// }
 			hb.WriteElementOpen("a", "href", item.Link)
 			hb.WriteEscaped(a.renderMdTitle(item.Title))
 			hb.WriteElementClose("a")
 		}
+		hb.WriteElementClose("nav")
+	}
+	// Logged-in user menu
+	if rd.LoggedIn() {
+		hb.WriteElementOpen("nav")
+		hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/editor"))
+		hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "editor"))
+		hb.WriteElementClose("a")
+		hb.WriteUnescaped(" &bull; ")
+		hb.WriteElementOpen("a", "href", "/notifications")
+		hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "notifications"))
+		hb.WriteElementClose("a")
+		if rd.WebmentionReceivingEnabled {
+			hb.WriteUnescaped(" &bull; ")
+			hb.WriteElementOpen("a", "href", "/webmention")
+			hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "webmentions"))
+			hb.WriteElementClose("a")
+		}
+		if rd.Blog.commentsEnabled() {
+			hb.WriteUnescaped(" &bull; ")
+			hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath(commentPath))
+			hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "comments"))
+			hb.WriteElementClose("a")
+		}
+		hb.WriteUnescaped(" &bull; ")
+		hb.WriteElementOpen("a", "href", rd.Blog.getRelativePath("/settings"))
+		hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "settings"))
+		hb.WriteElementClose("a")
+		hb.WriteUnescaped(" &bull; ")
+		hb.WriteElementOpen("a", "href", "/logout")
+		hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "logout"))
+		hb.WriteElementClose("a")
 		hb.WriteElementClose("nav")
 	}
 	hb.WriteElementClose("header")
@@ -178,7 +168,6 @@ func (a *goBlog) renderError(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 		},
 		func(hb *htmlbuilder.HtmlBuilder) {
 			if ed.Title != "" {
-				hb.WriteElementOpen("main")
 				hb.WriteElementOpen("h1")
 				hb.WriteEscaped(ed.Title)
 				hb.WriteElementClose("h1")
@@ -187,7 +176,6 @@ func (a *goBlog) renderError(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				hb.WriteElementOpen("p", "class", "monospace")
 				hb.WriteEscaped(ed.Message)
 				hb.WriteElementClose("p")
-				hb.WriteElementClose("main")
 			}
 		},
 	)
@@ -392,7 +380,7 @@ func (a *goBlog) renderIndex(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				_ = a.renderMarkdownToWriter(hb, id.description, false)
 			}
 			if titleOrDesc {
-				//	hb.WriteElementOpen("hr")
+				hb.WriteElementOpen("hr")
 			}
 			if id.posts != nil && len(id.posts) > 0 {
 				// Posts
@@ -880,18 +868,18 @@ func (a *goBlog) renderPost(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			// Post meta
 			a.renderPostMeta(hb, p, rd.Blog, "post")
 			// Post actions
-			// hb.WriteElementOpen("div", "class", "actions")
+			hb.WriteElementOpen("div", "class", "actions")
 			// Share button
 			a.renderShareButton(hb, p, rd.Blog)
 			// Translate button
 			a.renderTranslateButton(hb, p, rd.Blog)
-			/* Speak button
+			// Speak button
 			hb.WriteElementOpen("button", "id", "speakBtn", "class", "hide", "data-speak", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "speak"), "data-stopspeak", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "stopspeak"))
 			hb.WriteElementClose("button")
 			hb.WriteElementOpen("script", "defer", "", "src", lo.If(p.TTS() != "", a.assetFileName("js/tts.js")).Else(a.assetFileName("js/speak.js")))
 			hb.WriteElementClose("script")
 			// Close post actions
-			hb.WriteElementClose("div") */
+			hb.WriteElementClose("div")
 			// TTS
 			if tts := p.TTS(); tts != "" {
 				hb.WriteElementOpen("div", "class", "p hide", "id", "tts")
@@ -1018,7 +1006,7 @@ func (a *goBlog) renderIndieAuth(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 			hb.WriteElementClose("h1")
 			hb.WriteElementClose("main")
 			// Form
-			hb.WriteElementOpen("form", "class", "indieauth", "method", "post", "action", "/indieauth/accept", "class", "p")
+			hb.WriteElementOpen("form", "method", "post", "action", "/indieauth/accept", "class", "p")
 			// Scopes
 			if scopes := indieAuthRequest.Scopes; len(scopes) > 0 {
 				hb.WriteElementOpen("h3")
@@ -1501,6 +1489,8 @@ type settingsRenderData struct {
 	addReplyContext       bool
 	addLikeTitle          bool
 	addLikeContext        bool
+	addRepostTitle        bool
+	addRepostContext      bool
 	userNick              string
 	userName              string
 }
@@ -1576,6 +1566,21 @@ func (a *goBlog) renderSettings(hb *htmlbuilder.HtmlBuilder, rd *renderData) {
 				a.ts.GetTemplateStringVariant(rd.Blog.Lang, "addlikecontextdesc"),
 				addLikeContextSetting,
 				srd.addLikeContext,
+			)
+
+			// Add repost title
+			a.renderBooleanSetting(hb, rd,
+				rd.Blog.getRelativePath(settingsPath+settingsAddRepostTitlePath),
+				a.ts.GetTemplateStringVariant(rd.Blog.Lang, "addreposttitledesc"),
+				addRepostTitleSetting,
+				srd.addRepostTitle,
+			)
+			// Add repost context
+			a.renderBooleanSetting(hb, rd,
+				rd.Blog.getRelativePath(settingsPath+settingsAddRepostContextPath),
+				a.ts.GetTemplateStringVariant(rd.Blog.Lang, "addrepostcontextdesc"),
+				addRepostContextSetting,
+				srd.addRepostContext,
 			)
 
 			// User settings

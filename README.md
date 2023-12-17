@@ -1,13 +1,16 @@
 
 # GoBlog
 
-[GoBlog](https://github.com/jlelse/GoBlog) flavour powering my IndieWeb presence at [kandr3s.co](https://kandr3s.co)
+Source code for the [GoBlog](https://github.com/jlelse/GoBlog) instance powering my personal website [kandr3s.co](https://kandr3s.co).
 
-## Custom Plugins
+## Customization
 
-- Syndication: Adds icons and implements syndication targets.
-- NowPlaying: Displays the currently playing song via the Last.FM API.
-- Momentos: Theme, styling and other UI changes.
-- Letterboxd: Cross-post diary entries via RSS and Micropub.
-- [💿 Discoteca](https://kandr3s.co/discoteca): Templates for album-focused [Listens](https://indieweb.org/listen).
+* Timeline-based theme ([Momentos](plugins/momentos/momentos.md))
+* Basic support for [Syndication Targets](plugins/syndication/syndication.md) (Bridgy Fed & Micro.blog) and IndieWeb/Fediverse Reposts.
+* [sparkles](https://github.com/benjifs/sparkles) compatibility.
 
+## 🔌 Plugins
+* [NowPlaying](plugins/nowplaying/nowplaying.md): Displays user info from Last.FM.
+* [Letterboxd](plugins/letterboxd/letterboxd.md): Backfeed diary entries via RSS. (OwnYourWatches)
+* [Biblioteca](plugins/biblioteca/biblioteca.md): Manage bookshelves and reading notes.
+* [Discoteca](plugins/discoteca/discoteca.md): Album-based [Listens](https://indieweb.org/listen) log and cataloging system.

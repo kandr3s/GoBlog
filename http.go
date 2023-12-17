@@ -33,7 +33,7 @@ const (
 )
 
 func (a *goBlog) startServer() (err error) {
-	log.Println("Start server(s)...")
+	log.Println("⚡ GoBlog started...")
 	// Load router
 	a.reloadRouter()
 	// Set basic middlewares

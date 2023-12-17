@@ -152,7 +152,7 @@ func (a *goBlog) startHourlyHooks() {
 }
 
 func executeHookCommand(hookType, shell, cmd string) {
-	log.Printf("Executing %v hook: %v", hookType, cmd)
+	log.Printf("Executing %v hook:", hookType)
 	out, err := exec.Command(shell, "-c", cmd).CombinedOutput()
 	if err != nil {
 		log.Println("Failed to execute command:", err.Error())

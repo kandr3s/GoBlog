@@ -67,10 +67,11 @@ func (a *goBlog) renderSummary(origHb *htmlbuilder.HtmlBuilder, rd *renderData, 
 		// Show IndieWeb context
 		a.renderPostReplyContext(hb, p)
 		a.renderPostLikeContext(hb, p)
+		a.renderPostRepostContext(hb, p)
 		// Show summary
-		hb.WriteElementOpen("p", "class", "e-content")
+		hb.WriteElementOpen("div", "class", "e-content")
 		hb.WriteEscaped(a.postSummary(p))
-		hb.WriteElementClose("p")
+		hb.WriteElementClose("div")
 	}
 	// Show link to full post
 	hb.WriteElementOpen("p", "class", "hide")
@@ -236,14 +237,19 @@ func (a *goBlog) renderPostMeta(hb *htmlbuilder.HtmlBuilder, p *post, b *configB
 			hb.WriteEscaped(string(p.Status))
 			hb.WriteElementClose("div")
 		}
-		/* Visibility
-		if p.Visibility != visibilityPublic {
+		// Visibility
+		if p.Visibility != visibilityPublic && p.Published == "" {
 			hb.WriteElementOpen("div")
 			hb.WriteEscaped(a.ts.GetTemplateStringVariant(b.Lang, "visibility"))
 			hb.WriteEscaped(": ")
-			hb.WriteEscaped(string(p.Visibility))
+			if p.Visibility == "unlisted" {
+				hb.WriteUnescaped("🔓 Unlisted")
+			}
+			if p.Visibility == "private" {
+				hb.WriteUnescaped("🔒 Private")
+			}
 			hb.WriteElementClose("div")
-		}*/
+		}
 	}
 	if typ == "summary" || typ == "post" {
 		hb.WriteElementClose("div")
@@ -258,6 +264,11 @@ func (a *goBlog) renderPostReplyContext(hb *htmlbuilder.HtmlBuilder, p *post) {
 // Like ("u-like-of")
 func (a *goBlog) renderPostLikeContext(hb *htmlbuilder.HtmlBuilder, p *post) {
 	a.renderPostLikeReplyContext(hb, "u-like-of", a.ts.GetTemplateStringVariant(a.getBlogFromPost(p).Lang, "likeof"), a.likeLink(p), a.likeTitle(p), a.likeContext(p))
+}
+
+// Repost ("u-repost-of")
+func (a *goBlog) renderPostRepostContext(hb *htmlbuilder.HtmlBuilder, p *post) {
+	a.renderPostLikeReplyContext(hb, "u-repost-of", a.ts.GetTemplateStringVariant(a.getBlogFromPost(p).Lang, "repostof"), a.repostLink(p), a.repostTitle(p), a.repostContext(p))
 }
 
 func (a *goBlog) renderPostLikeReplyContext(hb *htmlbuilder.HtmlBuilder, class, pretext, link, title, content string) {
@@ -333,9 +344,6 @@ func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData)
 	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactions"))
 	hb.WriteElementClose("strong")
 	hb.WriteElementClose("summary")
-	hb.WriteElementOpen("p")
-	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactionslabel"))
-	hb.WriteElementClose("p")
 	// Render mentions
 	var renderMentions func(m []*mention)
 	renderMentions = func(m []*mention) {
@@ -368,8 +376,16 @@ func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData)
 		hb.WriteElementClose("ul")
 	}
 	renderMentions(a.db.getWebmentionsByAddress(rd.Canonical))
-
-	// Show form to create a new comment
+	// Show form to send a webmention
+	hb.WriteElementOpen("form", "class", "fw p", "method", "post", "action", "/webmention")
+	hb.WriteElementOpen("label", "for", "wm-source", "class", "p")
+	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactionslabel"))
+	hb.WriteElementClose("label")
+	hb.WriteElementOpen("input", "id", "wm-source", "type", "url", "name", "source", "placeholder", "URL", "required", "")
+	hb.WriteElementOpen("input", "type", "hidden", "name", "target", "value", rd.Canonical)
+	hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "send"))
+	hb.WriteElementClose("form")
+	Show form to create a new comment
 	hb.WriteElementOpen("form", "class", "fw p", "method", "post", "action", rd.Blog.getRelativePath(commentPath))
 	hb.WriteElementOpen("input", "type", "hidden", "name", "target", "value", rd.Canonical)
 	hb.WriteElementOpen("input", "type", "text", "name", "name", "placeholder", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "nameopt"))
@@ -378,15 +394,6 @@ func (a *goBlog) renderInteractions(hb *htmlbuilder.HtmlBuilder, rd *renderData)
 	hb.WriteElementClose("textarea")
 	hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "docomment"))
 	hb.WriteElementClose("form")
-	/* Show form to send a webmention
-	hb.WriteElementOpen("form", "class", "fw p", "method", "post", "action", "/webmention")
-	hb.WriteElementOpen("label", "for", "wm-source", "class", "p")
-	hb.WriteEscaped(a.ts.GetTemplateStringVariant(rd.Blog.Lang, "interactionslabel"))
-	hb.WriteElementClose("label")
-	hb.WriteElementOpen("input", "id", "wm-source", "type", "url", "name", "source", "placeholder", "URL", "required", "")
-	hb.WriteElementOpen("input", "type", "hidden", "name", "target", "value", rd.Canonical)
-	hb.WriteElementOpen("input", "type", "submit", "value", a.ts.GetTemplateStringVariant(rd.Blog.Lang, "send"))
-	hb.WriteElementClose("form") */
 	// Finish accordion
 	hb.WriteElementClose("details")
 }
@@ -473,12 +480,12 @@ func (a *goBlog) renderPagination(hb *htmlbuilder.HtmlBuilder, blog *configBlog,
 	hb.WriteElementOpen("div", "class", "pagination")
 	if hasPrev {
 		hb.WriteElementOpen("a", "href", prev, "class", "prev-page", "title", "Previous Page", "title", a.ts.GetTemplateStringVariant(blog.Lang, "prev"))
-		hb.WriteUnescaped("←")
+		hb.WriteUnescaped("← Previous")
 		hb.WriteElementClose("a")
 	}
 	if hasNext {
 		hb.WriteElementOpen("a", "href", next, "class", "next-page", "title", "Next Page", "title", a.ts.GetTemplateStringVariant(blog.Lang, "next"))
-		hb.WriteUnescaped("→")
+		hb.WriteUnescaped("Next →")
 		hb.WriteElementClose("a")
 	}
 	hb.WriteElementClose("div")
