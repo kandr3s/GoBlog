@@ -1,8 +1,11 @@
 package syndication
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -47,56 +50,106 @@ func (p *plugin) RenderWithDocument(rc plugintypes.RenderContext, doc *goquery.D
 	buf := bufferpool.Get()
 	defer bufferpool.Put(buf)
 	hb := htmlbuilder.NewHtmlBuilder(buf)
-	for _, link := range syndicationLinks {
-		rym := "rateyourmusic.com"
-		masto := "todon.org"
-		twitter := "twitter.com"
-		boxd := "boxd"
-		micro := "micro.blog"
-		bridgy := "brid.gy"
-		if strings.Contains(link, bridgy) {
-			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "title", "This post is part of The Fediverse")
-			hb.WriteElementClose("a")
+	hb.WriteElementOpen("div", "class", "syndication")
+	hb.WriteElementOpen("strong")
+	hb.WriteUnescaped("Also on: ")
+	hb.WriteElementClose("strong")
+	for i, link := range syndicationLinks {
+		if i > 0 {
+			hb.WriteUnescaped(" &bull; ")
 		}
-		if strings.Contains(link, rym) {
-			hb.WriteElementOpen("span", "class", "syndication")
-			hb.WriteElementOpen("a", "href", link, "class", "sonemic", "rel", "syndication", "title", "This post on RYM/Sonemic")
-			hb.WriteElementOpen("img", "src", "/assets/icons/sonemic.svg", "style", "width: 1rem")
+
+		switch {
+		case strings.Contains(link, "brid.gy"):
+			hb.WriteElementOpen("data", "value", link, "class", "u-syndication hide")
+			hb.WriteElementClose("data")
+			hb.WriteElementOpen("link", "rel", "alternate", "type", "application/activity+json", "href", "https://fed.brid.gy/r/"+rc.GetURL())
+			hb.WriteElementOpen("i", "class", "fediverse", "title", "The Fediverse")
+			hb.WriteElementClose("i")
+			// Post Summaries
+			summary := post.GetFirstParameterValue("summary")
+			if summary != "" {
+				hb.WriteElementOpen("data", "value", summary, "class", "p-summary hide")
+				hb.WriteElementClose("data")
+			}
+		case strings.Contains(link, "rateyourmusic.com"):
+			hb.WriteElementOpen("i", "class", "sonemic")
+			hb.WriteElementClose("i")
+			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "This post on RYM/Sonemic")
+			hb.WriteUnescaped("RYM/Sonemic")
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("span")
-		}
-		if strings.Contains(link, masto) {
-			hb.WriteElementOpen("span", "class", "syndication")
-			hb.WriteElementOpen("a", "href", link, "class", "mastodon", "rel", "syndication", "title", "This post on the Fediverse")
-			hb.WriteElementOpen("img", "src", "/assets/icons/mastodon.svg", "style", "width: 1rem")
+		case strings.Contains(link, "todon"):
+			hb.WriteElementOpen("i", "class", "mastodon")
+			hb.WriteElementClose("i")
+			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "This post on Mastodon")
+			hb.WriteUnescaped("Mastodon")
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("span")
-		}
-		if strings.Contains(link, twitter) {
-			hb.WriteElementOpen("span", "class", "syndication")
-			hb.WriteElementOpen("a", "href", link, "class", "twitter", "rel", "syndication", "title", "This post on Twitter")
-			hb.WriteElementOpen("img", "src", "/assets/icons/twitter.svg", "style", "width: 1rem")
+		// case strings.Contains(link, "twitter.com"):
+		// 	hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "This post on Twitter")
+		// 	hb.WriteElementOpen("img", "src", "/assets/icons/twitter.svg", "alt", "Twitter logo", "style", "width: 1rem")
+		// 	hb.WriteUnescaped("Twitter")
+		// 	hb.WriteElementClose("a")
+		case strings.Contains(link, "boxd"):
+			hb.WriteElementOpen("i", "class", "letterboxd")
+			hb.WriteElementClose("i")
+			hb.WriteElementOpen("a", "href", link, "class", "u-syndication", "rel", "syndication", "target", "_blank", "title", "This post on Letterboxd")
+			hb.WriteUnescaped("Letterboxd")
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("span")
-		}
-		if strings.Contains(link, boxd) {
-			hb.WriteElementOpen("span", "class", "syndication")
-			hb.WriteElementOpen("a", "href", link, "class", "letterboxd", "rel", "syndication", "title", "This post on Letterboxd")
-			hb.WriteElementOpen("img", "src", "/assets/icons/letterboxd.svg", "style", "width: 1rem")
+		case strings.Contains(link, "micro.blog"):
+			jsonURL := "https://micro.blog/webmention?target=https://kandr3s.co" + rc.GetPath()
+			homePageURL := ""
+			// Fetch the JSON file
+			resp, err := http.Get(jsonURL)
+			if err != nil {
+				fmt.Printf("Failed to fetch JSON file: %v\n", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			// Read the JSON data
+			jsonData, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Printf("Failed to read JSON data: %v\n", err)
+				return
+			}
+
+			// Parse the JSON data
+			var data map[string]interface{}
+			err = json.Unmarshal(jsonData, &data)
+			if err != nil {
+				hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "This post on Micro.blog")
+			} else {
+				homePageURL, ok := data["home_page_url"].(string)
+				if !ok {
+					fmt.Println("Failed to extract home_page_url from JSON data")
+					return
+				}
+				hb.WriteElementOpen("i", "class", "microblog")
+				hb.WriteElementClose("i")
+				hb.WriteElementOpen("a", "href", homePageURL, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "This post on Micro.blog")
+
+			}
+			hb.WriteUnescaped("Micro.blog")
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("span")
-		}
-		if strings.Contains(link, micro) {
-			hb.WriteElementOpen("span", "class", "syndication")
-			hb.WriteElementOpen("a", "href", link, "class", "microblog", "rel", "syndication", "title", "This post on Micro.blog")
-			hb.WriteElementOpen("img", "src", "/assets/icons/microblog.svg", "style", "width: 1rem")
+		case strings.Contains(link, "spotify.com"):
+			hb.WriteElementOpen("i", "class", "spotify")
+			hb.WriteElementClose("i")
+			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "Listen on Spotify")
+			hb.WriteUnescaped("Spotify")
 			hb.WriteElementClose("a")
-			hb.WriteElementClose("span")
-		} else {
+		case strings.Contains(link, "utube"):
+			hb.WriteElementOpen("i", "class", "youtube")
+			hb.WriteElementClose("i")
+			hb.WriteElementOpen("a", "href", link, "rel", "syndication", "class", "u-syndication", "target", "_blank", "title", "Listen on YouTube")
+			hb.WriteUnescaped("Youtube")
+			hb.WriteElementClose("a")
+		default:
 			hb.WriteElementOpen("data", "value", link, "class", "u-syndication hide")
 			hb.WriteElementClose("data")
 		}
 	}
+
+	hb.WriteElementClose("div")
 	doc.Find("main.h-entry article").AppendHtml(buf.String())
 }
 
@@ -107,56 +160,58 @@ func (p *plugin) PostCreated(post plugintypes.Post) {
 
 // Syndicate on Post Update
 func (p *plugin) PostUpdated(post plugintypes.Post) {
-	p.syndicate(post)
+	// Check if Post has Webmention enabled
+	webmention := post.GetFirstParameterValue("webmention")
+	if webmention != "false" {
+		p.syndicate(post)
+	} else {
+		fmt.Println("🔌 Syndication: Webmentions disabled on this post.")
+	}
 }
 
 // Webmention Sender
 func (p *plugin) syndicate(post plugintypes.Post) {
 	source := p.app.GetBlogURL() + post.GetPath()
-	syndicateTo := p.app.GetSyndicationTargets()
-	targets := post.GetParameter("syndication")
+	syndicationTargets := p.app.GetSyndicationTargets()
+	syndicationParam := post.GetParameter("syndication")
 
-	if targets == nil {
+	if syndicationParam == nil {
 		return
 	}
 
-	for _, syndicationLink := range targets {
-		for i, target := range syndicateTo {
-			if strings.Contains(target, syndicationLink) {
-				data := map[string][]string{
-					"source": {source},
-					"target": {target},
-				}
+	for _, syndicationLink := range syndicationParam {
+		for _, target := range syndicationTargets {
+			regex := regexp.MustCompile(`^(https?://[^/]+)`)
+			match := regex.FindStringSubmatch(target)
 
-				resp, err := http.PostForm(target, data)
-				if err != nil {
-					fmt.Println("Syndication plugin: Error sending webmention:", err)
-					continue
-				}
-
-				fmt.Printf("Syndication plugin: Webmention sent to '%s'. Result: %s", target, resp.Status)
-				if err != nil {
-					fmt.Println("Syndication plugin: Error sending Webmention:", err)
-					fmt.Println("Sending Ping instead...")
-					req, err := http.NewRequest("POST", target, nil)
-					if err != nil {
-						fmt.Println("Error sending ping request:", err)
-						return
+			if len(match) >= 2 {
+				webmentionEndpoint := match[1] + "/webmention"
+				if strings.Contains(target, syndicationLink) {
+					data := map[string][]string{
+						"source": {source},
+						"target": {target},
 					}
-					fmt.Printf("Ping sent to '%s' - Result: %s", target, req.Response.Status)
-					continue
+
+					resp, err := http.PostForm(webmentionEndpoint, data)
+					if err != nil {
+						fmt.Println("🔌 Syndication: Error sending webmention:", err)
+						continue
+					}
+
+					fmt.Printf("🔌 Syndication: Webmention sent to '%s'. Result: %s\n", webmentionEndpoint, resp.Status)
+					if err != nil {
+						fmt.Println("🔌 Syndication: Error sending Webmention:", err)
+						fmt.Println("Sending Ping instead...")
+						req, err := http.NewRequest("POST", webmentionEndpoint, nil)
+						if err != nil {
+							fmt.Println("Error sending ping request:", err)
+							return
+						}
+						fmt.Printf("Ping sent to '%s' - Result: %s", webmentionEndpoint, req.Response.Status)
+						continue
+					}
 				}
 			}
 		}
 	}
-}
-
-// Check Syndication Target
-func contains(array []string, target string) bool {
-	for _, item := range array {
-		if item == target {
-			return true
-		}
-	}
-	return false
 }

@@ -1,9 +1,11 @@
-# Discoteca plugin
+# Discoteca
 
-The GoBlog plugin that powers [💿 La Discoteca](https://kandr3s.co/listens). 
+GoBlog plugin that uses Markdown to catalog and rate albums in a music library.
 
-### To-Do
+Demo: 💿 [kandr3s' Discoteca](https://kandr3s.co/listens). 
 
-- [x] Create Template for album-focused [Listens](https://indieweb.org/scrobble)
-- [x] Automatically fetch Album art from iTunes.
-- [] Add streaming links 
+### Features
+
+- [x] Automatically save Album Art via the iTunes API.
+- [x] Custom rating and catalogging system.
+- [ ] Automatically display streaming links 

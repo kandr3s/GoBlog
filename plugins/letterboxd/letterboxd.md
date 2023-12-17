@@ -1,6 +1,11 @@
 # GoBlog-Letterboxd
 
-A [GoBlog](https://github.com/jlelse/GoBlog) plugin that uses RSS and Micropub to create an archive copy on your site of a Letterboxd film diary.
+A [GoBlog](https://github.com/jlelse/GoBlog) plugin that archives Letterboxd diary entries via RSS and Micropub.
+
+## Installation
+1. Copy the repository to the GoBlog's plugins folder.
+2. Setup [Config](#config) values.
+3. Rebuild GoBlog executable.
 
 ## Config
 ```yaml
@@ -8,19 +13,14 @@ A [GoBlog](https://github.com/jlelse/GoBlog) plugin that uses RSS and Micropub t
     import: letterboxd
     config:
       username: "user" # Letterboxd Username
-      blogURL: "http://goblog.url" # GoBlog instance URL
       section: "section" # GoBlog's Watches Section
       token: "MICROPUB-TOKEN" # GoBlog's Micropub Token
 ```
 
-**Demo:** 📺 [Watches](https://kandr3s.co/watches)
+### Features
 
----
-
-### TO-DO
-
-- [x] Add Microformats in Watches (Fetched from Letterboxd)
-- [x] Fetch data directly from the Letterboxd feed
-- [x] Implement “Rewatched”
-- [x] Set up variables in GoBlog's config
-- [ ] Automatically fetch movie backdrops 
+- [x] Fetches diary entries from a Letterboxd user RSS feed
+- [x] Implement “Rewatched” status
+- [x] Saves a copy of the Film poster locally
+- [ ] Automatically fetch movie backdrops
+- [ ] Fetch Film Directors names

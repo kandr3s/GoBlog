@@ -3,10 +3,13 @@ package discoteca
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"go.goblog.app/app/pkgs/bufferpool"
@@ -15,8 +18,9 @@ import (
 )
 
 type plugin struct {
-	app           plugintypes.App
-	parameterName string
+	app      plugintypes.App
+	artwork  string
+	albumart string
 }
 
 type iTunesResponse struct {
@@ -25,206 +29,172 @@ type iTunesResponse struct {
 	} `json:"results"`
 }
 
-func GetPlugin() (plugintypes.SetConfig, plugintypes.SetApp, plugintypes.UIPost, plugintypes.UISummary) {
+func GetPlugin() (plugintypes.SetApp, plugintypes.UIPost, plugintypes.UISummary) {
 	p := &plugin{}
-	return p, p, p, p
+	return p, p, p
 }
 
 func (p *plugin) SetApp(app plugintypes.App) {
 	p.app = app
 }
 
-func (p *plugin) SetConfig(config map[string]interface{}) {
-	p.parameterName = "section" // default
-	if configParameter, ok := config["parameter"].(string); ok {
-		p.parameterName = configParameter // override default from config
-	}
-}
-
 func (p *plugin) RenderPost(rc plugintypes.RenderContext, post plugintypes.Post, doc *goquery.Document) {
 	section := post.GetSection()
 	if section == "listens" {
-		params := post.GetParameters()
-		var album, artist, year, rating, albumstyle string
-		if albumSlice, ok := params["album"]; ok {
-			album = albumSlice[0]
-		} else {
+		album := post.GetFirstParameterValue("album")
+		artist := post.GetFirstParameterValue("artist")
+		year := post.GetFirstParameterValue("year")
+		rating := post.GetFirstParameterValue("rating")
+		albumstyle := post.GetFirstParameterValue("albumstyle")
+		artworkURL := post.GetFirstParameterValue("albumart")
+
+		if album == "" {
 			return
-		}
-		if artistSlice, ok := params["artist"]; ok {
-			artist = artistSlice[0]
-		}
-		if yearSlice, ok := params["year"]; ok {
-			year = yearSlice[0]
-		}
-		if ratingSlice, ok := params["rating"]; ok {
-			rating = ratingSlice[0]
-		}
-		if albumstyleSlice, ok := params["albumstyle"]; ok {
-			albumstyle = albumstyleSlice[0]
-		}
-		albumartSlice, albumartOk := params["albumart"]
-		artworkURL := ""
-
-		// Get AlbumArt from Itunes
-		if !albumartOk {
-			// Build the URL for the iTunes Search API
-			baseURL := "https://itunes.apple.com/search"
-			query := url.Values{}
-			query.Add("term", fmt.Sprintf("%s %s", artist, album))
-			query.Add("entity", "album")
-			query.Add("limit", "1")
-			url := fmt.Sprintf("%s?%s", baseURL, query.Encode())
-
-			// Send a GET request to the iTunes Search API
-			resp, err := http.Get(url)
-			if err != nil {
-				fmt.Println("Error fetching album cover:", err)
-				os.Exit(1)
+		} else {
+			// Get AlbumArt from Itunes
+			if artworkURL == "" {
+				p.fetchAlbumArt(album, artist, year)
+				p.app.SetPostParameter(post.GetPath(), "albumart", []string{p.albumart})
+				p.app.PurgeCache()
 			}
-			defer resp.Body.Close()
-
-			// Decode the JSON response
-			var iTunesResp iTunesResponse
-			if err := json.NewDecoder(resp.Body).Decode(&iTunesResp); err != nil {
-				fmt.Println("Error decoding iTunes response:", err)
-				os.Exit(1)
+			if p.albumart != "" {
+				artworkURL = p.albumart
 			}
+		}
 
-			// Print the URL of the album cover
-			if len(iTunesResp.Results) > 0 {
-				artworkURL = iTunesResp.Results[0].ArtworkUrl100
-				re := regexp.MustCompile("100x100bb\\.jpg")
-				artworkURL = re.ReplaceAllString(artworkURL, "316x316bb.webp")
-			} else {
-				fmt.Println("No results found")
-			}
+		// Build Listens HTML Template
+		doc.Find(".p-name").Remove()
+		buf := bufferpool.Get()
+		defer bufferpool.Put(buf)
+		hb := htmlbuilder.NewHtmlBuilder(buf)
+		hb.WriteElementOpen("div", "class", "album-details")
+		hb.WriteElementOpen("p", "class", "vinyl-case")
+		hb.WriteElementOpen("img", "src", artworkURL, "class", "album-art", "loading", "lazy", "width", "150px", "height", "150px")
+		hb.WriteElementClose("p")
 
-			// Build Listens HTML Template
-			buf := bufferpool.Get()
-			defer bufferpool.Put(buf)
-			hb := htmlbuilder.NewHtmlBuilder(buf)
-			hb.WriteElementOpen("p", "class", "p-summary hide")
-			hb.WriteUnescaped("🎵 Listened to " + album + " by " + artist)
-			hb.WriteElementClose("p")
-			hb.WriteElementOpen("div", "class", "e-content")
-			hb.WriteElementOpen("div", "class", "album-details")
-			hb.WriteElementOpen("p", "class", "vinyl-case")
-			hb.WriteElementOpen("img", "src", artworkURL, "class", "album-art", "loading", "lazy", "width", "150px", "height", "150px")
-			hb.WriteElementClose("p")
-
-			hb.WriteElementOpen("div", "class", "album-info")
+		hb.WriteElementOpen("div", "class", "album-info")
+		if rating != "" {
 			hb.WriteElementOpen("p")
 			hb.WriteElementOpen("img", "src", "/assets/icons/ratings/"+rating+".png", "alt", "Album rating", "title", "Album rating")
 			hb.WriteElementClose("p")
-			hb.WriteElementOpen("p", "class", "album-title")
-			hb.WriteUnescaped(album)
-			hb.WriteElementClose("p")
-			hb.WriteElementOpen("p", "class", "album-artist")
-			hb.WriteUnescaped(artist)
-			hb.WriteElementOpen("p", "class", "album-meta")
-			hb.WriteUnescaped(year + " · " + albumstyle)
-			hb.WriteElementClose("p")
-			hb.WriteElementClose("p")
-			hb.WriteElementClose("div")
-
-			doc.Find(".e-content").PrependHtml(buf.String())
-		} else {
-			artworkURL = albumartSlice[0]
 		}
+		hb.WriteElementOpen("p", "class", "album-title")
+		hb.WriteUnescaped(album)
+		hb.WriteElementClose("p")
+		hb.WriteElementOpen("p", "class", "album-artist")
+		hb.WriteUnescaped(artist)
+		hb.WriteElementOpen("p", "class", "album-meta")
+		hb.WriteUnescaped(year + " · " + albumstyle)
+		hb.WriteElementClose("p")
+		hb.WriteElementClose("p")
+		hb.WriteElementClose("div")
+		hb.WriteElementClose("div")
+
+		doc.Find(".e-content").PrependHtml(buf.String())
 	}
 }
 
 func (p *plugin) RenderSummaryForPost(rc plugintypes.RenderContext, post plugintypes.Post, doc *goquery.Document) {
 	section := post.GetSection()
 	if section == "listens" {
-		params := post.GetParameters()
-		var album, artist, year, rating, albumstyle string
-		if albumSlice, ok := params["album"]; ok {
-			album = albumSlice[0]
-		} else {
+		album := post.GetFirstParameterValue("album")
+		artist := post.GetFirstParameterValue("artist")
+		year := post.GetFirstParameterValue("year")
+		rating := post.GetFirstParameterValue("rating")
+		albumstyle := post.GetFirstParameterValue("albumstyle")
+		artworkURL := post.GetFirstParameterValue("albumart")
+
+		if album == "" {
 			return
-		}
-		if artistSlice, ok := params["artist"]; ok {
-			artist = artistSlice[0]
-		}
-		if yearSlice, ok := params["year"]; ok {
-			year = yearSlice[0]
-		}
-		if ratingSlice, ok := params["rating"]; ok {
-			rating = ratingSlice[0]
-		}
-		if albumstyleSlice, ok := params["albumstyle"]; ok {
-			albumstyle = albumstyleSlice[0]
-		}
-		albumartSlice, albumartOk := params["albumart"]
-		artworkURL := ""
-
-		// Get AlbumArt from iTunes
-		if !albumartOk {
-			// Build the URL for the iTunes Search API
-			baseURL := "https://itunes.apple.com/search"
-			query := url.Values{}
-			query.Add("term", fmt.Sprintf("%s %s", artist, album))
-			query.Add("entity", "album")
-			query.Add("limit", "1")
-			url := fmt.Sprintf("%s?%s", baseURL, query.Encode())
-
-			// Send a GET request to the iTunes Search API
-			resp, err := http.Get(url)
-			if err != nil {
-				fmt.Println("Error fetching album cover:", err)
-				os.Exit(1)
-			}
-			defer resp.Body.Close()
-
-			// Decode the JSON response
-			var iTunesResp iTunesResponse
-			if err := json.NewDecoder(resp.Body).Decode(&iTunesResp); err != nil {
-				fmt.Println("Error decoding iTunes response:", err)
-				os.Exit(1)
-			}
-
-			// Print the URL of the album cover
-			if len(iTunesResp.Results) > 0 {
-				artworkURL = iTunesResp.Results[0].ArtworkUrl100
-				re := regexp.MustCompile("100x100bb\\.jpg")
-				artworkURL = re.ReplaceAllString(artworkURL, "316x316bb.webp")
-			} else {
-				fmt.Println("No results found")
-			}
-
-			// Build Listens HTML Template
-			buf := bufferpool.Get()
-			defer bufferpool.Put(buf)
-			hb := htmlbuilder.NewHtmlBuilder(buf)
-			hb.WriteElementOpen("p", "class", "p-summary hide")
-			hb.WriteUnescaped("🎵 Listened to " + album + " by " + artist)
-			hb.WriteElementClose("p")
-			hb.WriteElementOpen("div", "class", "e-content")
-			hb.WriteElementOpen("div", "class", "album-details")
-			hb.WriteElementOpen("p", "class", "vinyl-case")
-			hb.WriteElementOpen("img", "src", artworkURL, "class", "album-art", "loading", "lazy", "width", "150px", "height", "150px")
-			hb.WriteElementClose("p")
-
-			hb.WriteElementOpen("div", "class", "album-info")
-			hb.WriteElementOpen("p")
-			hb.WriteElementOpen("img", "src", "/assets/icons/ratings/"+rating+".png", "alt", "Album rating", "title", "Album rating")
-			hb.WriteElementClose("p")
-			hb.WriteElementOpen("p", "class", "album-title")
-			hb.WriteUnescaped(album)
-			hb.WriteElementClose("p")
-			hb.WriteElementOpen("p", "class", "album-artist")
-			hb.WriteUnescaped(artist)
-			hb.WriteElementOpen("p", "class", "album-meta")
-			hb.WriteUnescaped(year + " · " + albumstyle)
-			hb.WriteElementClose("p")
-			hb.WriteElementClose("p")
-			hb.WriteElementClose("div")
-
-			doc.Find(".e-content").PrependHtml(buf.String())
 		} else {
-			artworkURL = albumartSlice[0]
+			if artworkURL == "" {
+				p.fetchAlbumArt(album, artist, year)
+				p.app.SetPostParameter(post.GetPath(), "albumart", []string{p.albumart})
+				p.app.PurgeCache()
+			}
+			// Build Listens HTML Template
+			doc.Find(".p-name").Remove()
+			doc.Find(".e-content").PrependHtml(fmt.Sprintf("<p class=p-summary>%s</p><div class=album-details><p class=vinyl-case><img src=%s class=album-art loading=lazy width=150px height=150px /></p><div class=album-info><p><img src=/assets/icons/ratings/%s.png alt=Rating><p class=album-title>%s</p><p class=album-artist>%s</p><p class=album-meta>%s · %s</p></div>", post.GetTitle(), artworkURL, rating, album, artist, year, albumstyle))
 		}
 	}
+}
+
+func (p *plugin) fetchAlbumArt(album, artist, year string) {
+	// Build iTunes API Request
+	baseURL := "https://itunes.apple.com/search"
+	query := url.Values{}
+	query.Add("term", fmt.Sprintf("%s %s", artist, album))
+	query.Add("entity", "album")
+	query.Add("limit", "1")
+	url := fmt.Sprintf("%s?%s", baseURL, query.Encode())
+
+	// Send iTunes API request
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println("Error fetching album cover:", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Decode iTunes API response
+	var iTunesResp iTunesResponse // Define iTunesResponse struct
+	if err := json.NewDecoder(resp.Body).Decode(&iTunesResp); err != nil {
+		fmt.Println("Error decoding iTunes response:", err)
+		return
+	}
+
+	// Get Album Art
+	if len(iTunesResp.Results) > 0 {
+		artworkURL := iTunesResp.Results[0].ArtworkUrl100
+		p.artwork = artworkURL // Set arworkURL
+
+		// Set filename
+		re := regexp.MustCompile("100x100bb\\.jpg")
+		artworkURL = re.ReplaceAllString(artworkURL, "316x316bb.webp")
+		_, file := path.Split(artworkURL)
+		slugFilename := fmt.Sprintf("%s_%s_%s", slugify(album), slugify(artist), file)
+
+		outputDir := "./static/images/art/albums/"
+		if err := os.MkdirAll(outputDir, 0755); err != nil {
+			fmt.Printf("Error creating directory: %v\n", err)
+			return
+		}
+		outputPath := path.Join(outputDir, slugFilename)
+
+		// Download Album Art
+		response, err := http.Get(artworkURL)
+		if err != nil {
+			fmt.Printf("Error downloading image: %v\n", err)
+			return
+		}
+		defer response.Body.Close()
+
+		// Create the output file
+		outputFile, err := os.Create(outputPath)
+		if err != nil {
+			fmt.Printf("Error creating output file: %v\n", err)
+			return
+		}
+		defer outputFile.Close()
+
+		// Copy the image data to the output file
+		_, err = io.Copy(outputFile, response.Body)
+		if err != nil {
+			fmt.Printf("Error saving image: %v\n", err)
+			return
+		}
+		fmt.Printf("🔌 Discoteca: Album Art saved to: %s\n", outputPath)
+		// Set Album Art URL
+		p.albumart = regexp.MustCompile(`(^|/)static(/|$)`).ReplaceAllString(outputPath, "/")
+	} else {
+		fmt.Println("🔌 Discoteca: No artwork found for: ", artist, "-", album, "[", year, "]")
+	}
+}
+
+func slugify(s string) string {
+	// Return alphanumeric-only dashed and lowercased
+	regExp := regexp.MustCompile("[^a-zA-Z0-9]+")
+	s = regexp.MustCompile("\\s+").ReplaceAllString(s, "-")
+	s = regexp.MustCompile("-+").ReplaceAllString(regExp.ReplaceAllString(s, "-"), "-")
+	return strings.ToLower(s)
 }

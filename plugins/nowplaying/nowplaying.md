@@ -1,6 +1,10 @@
 ## GoBlog NowPlaying Plugin
 
-Plugin for GoBlog blogging system that displays the currently playing song from Last.FM.
+Plugin for GoBlog blogging system that displays data from Last.FM.
+
+* Display currently playing song
+* Automatically post Loved Tracks (#NowPlaying)
+* Generate Top Albums in the Month chart
 
 ## Installation
 
@@ -14,6 +18,8 @@ plugins:
     config:
       user: yourLastFMNick
       key: yourLastFMAPIKey
+      favorites: false // Saves a #NowPlaying post for Loved tracks on Last.FM
+      topalbums: true // Display Top Played Albums in the last month. 
 ```
 
-Plugin can be seen in action on [my website](https://kandr3s.co) whenever a song is actually being played.
+Demo: 🎧 [kandr3s' #NowPlaying](https://kandr3s.co/listens#nowplaying)
