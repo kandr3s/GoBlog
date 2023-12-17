@@ -27,6 +27,8 @@ func (a *goBlog) serveSettings(w http.ResponseWriter, r *http.Request) {
 			addReplyContext:       bc.addReplyContext,
 			addLikeTitle:          bc.addLikeTitle,
 			addLikeContext:        bc.addLikeContext,
+			addRepostTitle:        bc.addRepostTitle,
+			addRepostContext:      bc.addRepostContext,
 			userNick:              a.cfg.User.Nick,
 			userName:              a.cfg.User.Name,
 		},
@@ -208,6 +210,22 @@ const settingsAddLikeContextPath = "/likecontext"
 func (a *goBlog) settingsAddLikeContext() http.HandlerFunc {
 	return a.booleanBlogSettingHandler(addLikeContextSetting, func(cb *configBlog, b bool) {
 		cb.addLikeContext = b
+	})
+}
+
+const settingsAddRepostTitlePath = "/reposttitle"
+
+func (a *goBlog) settingsAddRepostTitle() http.HandlerFunc {
+	return a.booleanBlogSettingHandler(addRepostTitleSetting, func(cb *configBlog, b bool) {
+		cb.addRepostTitle = b
+	})
+}
+
+const settingsAddRepostContextPath = "/repostcontext"
+
+func (a *goBlog) settingsAddRepostContext() http.HandlerFunc {
+	return a.booleanBlogSettingHandler(addRepostContextSetting, func(cb *configBlog, b bool) {
+		cb.addRepostContext = b
 	})
 }
 

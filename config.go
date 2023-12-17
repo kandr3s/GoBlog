@@ -107,6 +107,8 @@ type configBlog struct {
 	addReplyContext       bool
 	addLikeTitle          bool
 	addLikeContext        bool
+	addRepostTitle        bool
+	addRepostContext      bool
 	// Editor state WebSockets
 	esws sync.Map
 	esm  sync.Mutex
@@ -243,6 +245,9 @@ type configMicropub struct {
 	LikeParam             string               `mapstructure:"likeParam"`
 	LikeTitleParam        string               `mapstructure:"likeTitleParam"`
 	LikeContextParam      string               `mapstructure:"likeContextParam"`
+	RepostParam           string               `mapstructure:"repostParam"`
+	RepostTitleParam      string               `mapstructure:"repostTitleParam"`
+	RepostContextParam    string               `mapstructure:"repostContextParam"`
 	BookmarkParam         string               `mapstructure:"bookmarkParam"`
 	AudioParam            string               `mapstructure:"audioParam"`
 	PhotoParam            string               `mapstructure:"photoParam"`
@@ -361,6 +366,8 @@ type configPlugin struct {
 type configSyndication struct {
 	Name string `mapstructure:"name"`
 	UId  string `mapstructure:"uid"`
+}
+
 type configRobotsTxt struct {
 	BlockedBots []string `mapstructure:"blockedBots"`
 }
@@ -548,15 +555,15 @@ func (a *goBlog) initConfig(logging bool) error {
 		// Load other settings from database
 		configs := []*bool{
 			&bc.hideOldContentWarning, &bc.hideShareButton, &bc.hideTranslateButton,
-			&bc.addReplyTitle, &bc.addReplyContext, &bc.addLikeTitle, &bc.addLikeContext,
+			&bc.addReplyTitle, &bc.addReplyContext, &bc.addLikeTitle, &bc.addLikeContext, &bc.addRepostTitle, &bc.addRepostContext,
 		}
 		settings := []string{
 			hideOldContentWarningSetting, hideShareButtonSetting, hideTranslateButtonSetting,
-			addReplyTitleSetting, addReplyContextSetting, addLikeTitleSetting, addLikeContextSetting,
+			addReplyTitleSetting, addReplyContextSetting, addLikeTitleSetting, addLikeContextSetting, addRepostTitleSetting, addRepostContextSetting,
 		}
 		defaults := []bool{
 			false, false, false,
-			false, false, false, false,
+			false, false, false, false, false, false,
 		}
 		for i := range configs {
 			*configs[i], err = a.getBooleanSettingValue(settingNameWithBlog(blog, settings[i]), defaults[i])
@@ -599,6 +606,9 @@ func createDefaultConfig() *config {
 			LikeParam:             "likelink",
 			LikeTitleParam:        "liketitle",
 			LikeContextParam:      "likecontext",
+			RepostParam:           "repostlink",
+			RepostTitleParam:      "reposttitle",
+			RepostContextParam:    "repostcontext",
 			BookmarkParam:         "link",
 			AudioParam:            "audio",
 			PhotoParam:            "images",

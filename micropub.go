@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -27,6 +28,7 @@ func (a *goBlog) serveMicropubQuery(w http.ResponseWriter, r *http.Request) {
 			"channels":       channels,
 			"media-endpoint": a.getFullAddress(micropubPath + micropubMediaSubPath),
 			"visibility":     []postVisibility{visibilityPublic, visibilityUnlisted, visibilityPrivate},
+			"syndicate-to":   a.GetSyndicationQuery(),
 		}
 	case "source":
 		if urlString := query.Get("url"); urlString != "" {
@@ -102,8 +104,8 @@ func (a *goBlog) GetSyndicationQuery() []map[string]interface{} {
 	for _, blog := range a.cfg.Blogs {
 		for _, target := range blog.SyndicationTargets {
 			syndicationTargets = append(syndicationTargets, map[string]interface{}{
-				"name": target.Name,
 				"uid":  target.UId,
+				"name": target.Name,
 			})
 		}
 	}
@@ -208,14 +210,6 @@ func (a *goBlog) micropubParseValuePostParamsValueMap(entry *post, values map[st
 		entry.Parameters[a.cfg.Micropub.CategoryParam] = categories
 		delete(values, "category[]")
 	}
-	if inReplyTo, ok := values["in-reply-to"]; ok {
-		entry.Parameters[a.cfg.Micropub.ReplyParam] = inReplyTo
-		delete(values, "in-reply-to")
-	}
-	if likeOf, ok := values["like-of"]; ok {
-		entry.Parameters[a.cfg.Micropub.LikeParam] = likeOf
-		delete(values, "like-of")
-	}
 	if bookmarkOf, ok := values["bookmark-of"]; ok {
 		entry.Parameters[a.cfg.Micropub.BookmarkParam] = bookmarkOf
 		delete(values, "bookmark-of")
@@ -245,6 +239,22 @@ func (a *goBlog) micropubParseValuePostParamsValueMap(entry *post, values map[st
 		entry.Parameters[a.cfg.Micropub.LocationParam] = location
 		delete(values, "location")
 	}
+	// Set Custom Parameters
+	if inReplyTo, ok := values["in-reply-to"]; ok {
+		entry.Parameters[a.cfg.Micropub.ReplyParam] = inReplyTo
+		entry.setChannel("kandr3s/responses") // Category for all interactions
+		delete(values, "in-reply-to")
+	}
+	if likeOf, ok := values["like-of"]; ok {
+		entry.Parameters[a.cfg.Micropub.LikeParam] = likeOf
+		entry.setChannel("kandr3s/responses") // Category for all interactions
+		delete(values, "like-of")
+	}
+	if repostOf, ok := values["repost-of"]; ok {
+		entry.Parameters[a.cfg.Micropub.RepostParam] = repostOf
+		entry.setChannel("kandr3s/responses") // Category for all interactions
+		delete(values, "repost-of")
+	}
 	if syndication, ok := values["mp-syndicate-to"]; ok && len(syndication) > 0 {
 		entry.Parameters["syndication"] = syndication
 		delete(values, "mp-syndicate-to")
@@ -273,6 +283,19 @@ type microformatItem struct {
 	Delete     any                    `json:"delete,omitempty"`
 }
 
+// Sparkles "Reads" Testing
+type microformatCiteProperties struct {
+	Name   []string `json:"name,omitempty"`
+	Author []string `json:"author,omitempty"`
+	UID    []string `json:"uid,omitempty"`
+	Photo  []string `json:"photo,omitempty"`
+}
+
+type microformatCite struct {
+	Type       []string                  `json:"type,omitempty"`
+	Properties microformatCiteProperties `json:"properties,omitempty"`
+}
+
 type microformatProperties struct {
 	Name          []string `json:"name,omitempty"`
 	Published     []string `json:"published,omitempty"`
@@ -284,12 +307,20 @@ type microformatProperties struct {
 	URL           []string `json:"url,omitempty"`
 	InReplyTo     []string `json:"in-reply-to,omitempty"`
 	LikeOf        []string `json:"like-of,omitempty"`
+	RepostOf      []string `json:"repost-of,omitempty"`
 	BookmarkOf    []string `json:"bookmark-of,omitempty"`
 	MpSlug        []string `json:"mp-slug,omitempty"`
 	Photo         []any    `json:"photo,omitempty"`
 	Audio         []string `json:"audio,omitempty"`
 	MpChannel     []string `json:"mp-channel,omitempty"`
-	MpSyndication []string `json:"mp-syndication,omitempty"`
+	MpSyndication []string `json:"mp-syndicate-to,omitempty"`
+	// Sparkles Reads
+	Summary    []string          `json:"summary,omitempty"`
+	ReadStatus []string          `json:"progress,omitempty"`
+	Rating     []string          `json:"rating,omitempty"`
+	ReadOf     []microformatCite `json:"read-of,omitempty"`
+	WatchOf    []microformatCite `json:"watch-of,omitempty"`
+	ListenOf   []microformatCite `json:"listen-of,omitempty"`
 }
 
 func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem) error {
@@ -317,7 +348,7 @@ func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem)
 		entry.setChannel(mf.Properties.MpChannel[0])
 	}
 	if len(mf.Properties.MpSyndication) > 0 {
-		entry.Slug = mf.Properties.MpSyndication[0]
+		entry.Parameters["syndication"] = mf.Properties.MpSyndication
 	}
 	// Status
 	if len(mf.Properties.PostStatus) > 0 {
@@ -342,6 +373,9 @@ func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem)
 	if len(mf.Properties.LikeOf) > 0 {
 		entry.Parameters[a.cfg.Micropub.LikeParam] = mf.Properties.LikeOf
 	}
+	if len(mf.Properties.RepostOf) > 0 {
+		entry.Parameters[a.cfg.Micropub.RepostParam] = mf.Properties.RepostOf
+	}
 	if len(mf.Properties.BookmarkOf) > 0 {
 		entry.Parameters[a.cfg.Micropub.BookmarkParam] = mf.Properties.BookmarkOf
 	}
@@ -358,6 +392,56 @@ func (a *goBlog) micropubParsePostParamsMfItem(entry *post, mf *microformatItem)
 				entry.Parameters[a.cfg.Micropub.PhotoDescriptionParam] = append(entry.Parameters[a.cfg.Micropub.PhotoDescriptionParam], cast.ToString(thePhoto["alt"]))
 			}
 		}
+	}
+	// Set Additional Parameters for Custom Post Types
+	if len(mf.Properties.ReadOf) > 0 {
+		entry.Parameters["author"] = mf.Properties.ReadOf[0].Properties.Author
+		entry.Parameters["book"] = mf.Properties.ReadOf[0].Properties.Name
+		readSummary := fmt.Sprintf("📚 %s", mf.Properties.Summary[0])
+		entry.Parameters["title"] = []string{readSummary}
+
+		// Set Biblioteca Shelf
+		var readShelf string
+		if len(mf.Properties.ReadStatus) > 0 {
+			switch mf.Properties.ReadStatus[0] {
+			case "finished":
+				readShelf = "read"
+			case "started":
+				readShelf = "reading"
+			case "want":
+				readShelf = "to-read"
+			}
+			entry.Parameters["shelf"] = []string{readShelf}
+		}
+
+		entry.Parameters["olid"] = mf.Properties.ReadOf[0].Properties.UID
+		entry.Parameters["bookcover"] = mf.Properties.ReadOf[0].Properties.Photo
+		entry.setChannel("kandr3s/reads")
+	}
+	if len(mf.Properties.WatchOf) > 0 {
+		watchSummary := fmt.Sprintf("🍿 %s", mf.Properties.Summary[0])
+		entry.Parameters["title"] = []string{watchSummary}
+		entry.setChannel("kandr3s/watches")
+	}
+	if len(mf.Properties.ListenOf) > 0 {
+		listenSummary := fmt.Sprintf("🎵 %s", mf.Properties.Summary[0])
+		entry.Parameters["title"] = []string{listenSummary}
+		entry.setChannel("kandr3s/listens")
+		entry.Parameters["artist"] = mf.Properties.ListenOf[0].Properties.Author
+		entry.Parameters["album"] = mf.Properties.ListenOf[0].Properties.Name
+	}
+	// Convert Rating
+	if len(mf.Properties.Rating) > 0 {
+		mpRating := mf.Properties.Rating
+
+		rating, err := strconv.ParseFloat(mpRating[0], 64)
+		if err != nil {
+			fmt.Println("Error converting string to number:", err)
+			return err
+		}
+
+		myRating := int(rating * 2)
+		entry.Parameters["rating"] = []string{strconv.Itoa(myRating)}
 	}
 	return nil
 }
@@ -593,6 +677,9 @@ func (a *goBlog) micropubUpdateReplace(p *post, replace map[string][]any) {
 	if like, ok := replace["like-of"]; ok && like != nil {
 		p.Parameters[a.cfg.Micropub.LikeParam] = cast.ToStringSlice(like)
 	}
+	if repost, ok := replace["repost-of"]; ok && repost != nil {
+		p.Parameters[a.cfg.Micropub.RepostParam] = cast.ToStringSlice(repost)
+	}
 	if bookmark, ok := replace["bookmark-of"]; ok && bookmark != nil {
 		p.Parameters[a.cfg.Micropub.BookmarkParam] = cast.ToStringSlice(bookmark)
 	}
@@ -651,6 +738,10 @@ func (a *goBlog) micropubUpdateDelete(p *post, del any) {
 				delete(p.Parameters, a.cfg.Micropub.LikeParam)
 				delete(p.Parameters, a.cfg.Micropub.LikeTitleParam)
 				delete(p.Parameters, a.cfg.Micropub.LikeContextParam)
+			case "repost-of":
+				delete(p.Parameters, a.cfg.Micropub.RepostParam)
+				delete(p.Parameters, a.cfg.Micropub.RepostTitleParam)
+				delete(p.Parameters, a.cfg.Micropub.RepostContextParam)
 			case "bookmark-of":
 				delete(p.Parameters, a.cfg.Micropub.BookmarkParam)
 			case "audio":
@@ -681,6 +772,9 @@ func (a *goBlog) micropubUpdateDelete(p *post, del any) {
 			case "like-of":
 				delete(p.Parameters, a.cfg.Micropub.LikeParam)
 				delete(p.Parameters, a.cfg.Micropub.LikeTitleParam)
+			case "repost-of":
+				delete(p.Parameters, a.cfg.Micropub.RepostParam)
+				delete(p.Parameters, a.cfg.Micropub.RepostTitleParam)
 			case "bookmark-of":
 				delete(p.Parameters, a.cfg.Micropub.BookmarkParam)
 			// Properties to delete part of

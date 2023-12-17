@@ -68,6 +68,7 @@ func (a *goBlog) postHtmlToWriter(w io.Writer, o *postHtmlOptions) {
 		a.renderPostReplyContext(hb, o.p)
 	}
 	a.renderPostLikeContext(hb, o.p)
+	a.renderPostRepostContext(hb, o.p)
 	// Render markdown
 	hb.WriteElementOpen("div", "class", "e-content")
 	_ = a.renderMarkdownToWriter(w, o.p.Content, o.absolute)
@@ -195,6 +196,7 @@ func (a *goBlog) postToMfItem(p *post) *microformatItem {
 			URL:        []string{a.fullPostURL(p)},
 			InReplyTo:  p.Parameters[a.cfg.Micropub.ReplyParam],
 			LikeOf:     p.Parameters[a.cfg.Micropub.LikeParam],
+			RepostOf:   p.Parameters[a.cfg.Micropub.RepostParam],
 			BookmarkOf: p.Parameters[a.cfg.Micropub.BookmarkParam],
 			MpSlug:     []string{p.Slug},
 			Audio:      p.Parameters[a.cfg.Micropub.AudioParam],
@@ -248,6 +250,18 @@ func (a *goBlog) likeTitle(p *post) string {
 
 func (a *goBlog) likeContext(p *post) string {
 	return p.firstParameter(a.cfg.Micropub.LikeContextParam)
+}
+
+func (a *goBlog) repostLink(p *post) string {
+	return p.firstParameter(a.cfg.Micropub.RepostParam)
+}
+
+func (a *goBlog) repostTitle(p *post) string {
+	return p.firstParameter(a.cfg.Micropub.RepostTitleParam)
+}
+
+func (a *goBlog) repostContext(p *post) string {
+	return p.firstParameter(a.cfg.Micropub.RepostContextParam)
 }
 
 func (a *goBlog) photoLinks(p *post) []string {
@@ -324,6 +338,24 @@ func (a *goBlog) addLikeTitleAndContext(p *post) {
 			}
 			if addContext && mf.Content != "" {
 				p.addParameter(a.cfg.Micropub.LikeContextParam, mf.Content)
+			}
+		}
+	}
+}
+
+func (a *goBlog) addRepostTitleAndContext(p *post) {
+	if repostLink := p.firstParameter(a.cfg.Micropub.RepostParam); repostLink != "" {
+		addTitle := p.firstParameter(a.cfg.Micropub.RepostTitleParam) == "" && a.getBlogFromPost(p).addRepostTitle
+		addContext := p.firstParameter(a.cfg.Micropub.RepostContextParam) == "" && a.getBlogFromPost(p).addRepostContext
+		if !addTitle && !addContext {
+			return
+		}
+		if mf, err := a.parseMicroformats(repostLink, true); err == nil {
+			if addTitle && mf.Title != "" {
+				p.addParameter(a.cfg.Micropub.RepostTitleParam, mf.Title)
+			}
+			if addContext && mf.Content != "" {
+				p.addParameter(a.cfg.Micropub.RepostContextParam, mf.Content)
 			}
 		}
 	}

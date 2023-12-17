@@ -224,6 +224,9 @@ func (a *goBlog) editorPostDesc(bc *configBlog) string {
 		a.cfg.Micropub.ReplyParam,
 		a.cfg.Micropub.ReplyTitleParam,
 		a.cfg.Micropub.ReplyContextParam,
+		a.cfg.Micropub.RepostParam,
+		a.cfg.Micropub.RepostTitleParam,
+		a.cfg.Micropub.RepostContextParam,
 		gpxParameter,
 	} {
 		if param == "" {

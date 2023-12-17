@@ -23,6 +23,8 @@ const (
 	addReplyContextSetting       = "addreplycontext"
 	addLikeTitleSetting          = "addliketitle"
 	addLikeContextSetting        = "addlikecontext"
+	addRepostTitleSetting        = "addreposttitle"
+	addRepostContextSetting      = "addrepostcontext"
 )
 
 func (a *goBlog) getSettingValue(name string) (string, error) {

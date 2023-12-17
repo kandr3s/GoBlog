@@ -111,6 +111,7 @@ func (a *goBlog) checkPost(p *post, new bool) (err error) {
 	if new {
 		a.addReplyTitleAndContext(p)
 		a.addLikeTitleAndContext(p)
+		a.addRepostTitleAndContext(p)
 	}
 	// Check path
 	if p.Path != "/" {
